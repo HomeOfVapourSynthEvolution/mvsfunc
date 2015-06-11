@@ -2,6 +2,12 @@
 __pycache__/
 *.py[cod]
 
+# VapourSynth Python script
+*.vpy
+
+# Tested images
+*.png
+
 # C extensions
 *.so
 

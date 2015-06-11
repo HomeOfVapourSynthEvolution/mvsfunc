@@ -35,12 +35,12 @@ import vapoursynth as vs
 ##     input {clip}: clip to be converted
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
-##         If not specified, it's the same as that of the input clip
+##         If not specified, it's the same as that of the input clip.
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
-##         If not specified, it's the same as that of the input clip
-##     fulls {bool}: define if the input clip is of full range
-##         If not specified, it will be guessed according to color family of input clip
-##     fulld {bool}: define if the output clip is of full range
+##         If not specified, it's the same as that of the input clip.
+##     fulls {bool}: define if input clip is of full range
+##         If not specified, it will be guessed according to the color family of input clip.
+##     fulld {bool}: define if output clip is of full range
 ##         Default is the same as fulls.
 ################################################################################################################################
 ## Advanced parameters
@@ -49,7 +49,7 @@ import vapoursynth as vs
 ##         For str, it's the same as "dither" in z.Depth, it can be automatically converted if using fmtc.bitdepth
 ##         If not specified:
 ##             output depth == 32 or conversion without quantization error: 1 | "none"
-##             otherwise: 3 | "error_diffusion"
+##             otherwise: 3 | "random"
 ##     useZ {bool}: force using of z.Depth or fmtc.bitdepth for depth conversion
 ##         By default, z.Depth is used when full range integer is involved.
 ##             full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
@@ -121,10 +121,6 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     elif not isinstance(fulld, int):
         raise ValueError(funcName + ': \"fulld\" must be a bool!')
     
-    # Skip processing if not needed
-    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls):
-        return clip
-    
     # Whether to use z.Depth or fmtc.bitdepth for conversion
     # If not set, when full range is involved for integer format, use z.Depth
     # When 11-,13-,14-,15-bit integer or 16-bit float format is involved, always use z.Depth
@@ -140,11 +136,14 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         useZ = True
     
     # Dithering type
+    if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
+            raise ValueError(funcName + ': \"ampn\" must be a float or int!')
+    
     if dither is None:
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
             dither = "none" if useZ else 1
         else:
-            dither = "error_diffusion" if useZ else 3
+            dither = "random" if useZ else 3
     elif not isinstance(dither, int) and not isinstance(dither, str):
         raise ValueError(funcName + ': \"dither\" must be a int or str!')
     else:
@@ -159,7 +158,10 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
             if dither == 0:
                 dither = "ordered"
             elif dither == 1 or dither == 2:
-                dither = "none"
+                if ampn is not None and ampn > 0:
+                    dither = "random"
+                else:
+                    dither = "none"
             else:
                 dither = "error_diffusion"
         elif not useZ and isinstance(dither, str):
@@ -167,12 +169,26 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
                 dither = 1
             elif dither == "ordered":
                 dither = 0
+            elif dither == "random":
+                if ampn is None:
+                    dither = 1
+                    ampn = 1
+                elif ampn > 0:
+                    dither = 1
+                else:
+                    dither = 3
             else:
                 dither = 3
     
     if not useZ:
         if ampo is None:
             ampo = 1.5 if dither == 0 else 1
+        elif not isinstance(ampo, float) and not isinstance(ampo, int):
+            raise ValueError(funcName + ': \"ampo\" must be a float or int!')
+    
+    # Skip processing if not needed
+    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls):
+        return clip
     
     # Apply conversion
     if useZ:
@@ -191,6 +207,29 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ## Convert any color space to full range RGB.
 ## Thus, if input is limited range RGB, it will be converted to full range.
 ## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB
+################################################################################################################################
+## Basic parameters
+##     input {clip}: clip to be converted
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
+##         Guide the conversion coefficients from YUV to RGB.
+##         Check the information about GetMatrix() for available values.
+##         If not specified, it will be guessed according to the color family and size of input clip.
+##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
+##         If not specified, it's the same as that of the input clip.
+##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##         If not specified, it's the same as that of the input clip.
+##     full {bool}: define if input clip is of full range
+##         If not specified, it will be guessed according to the color family of input clip and "matrix".
+################################################################################################################################
+## Parameters of depth conversion
+##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##         same as those in Depth()
+################################################################################################################################
+## Parameters of resampling
+##     kernel, taps, a1, a2, cplace:
+##         used for chroma re-sampling, same as those in fmtc.resample
+##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
@@ -226,7 +265,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP":
+        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -281,8 +320,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if kernel is None:
         kernel = "bicubic"
         if a1 is None and a2 is None:
-            a1 = 1/3
-            a2 = 1/3
+            a1 = 0
+            a2 = 0.5
     elif not isinstance(kernel, str):
         raise ValueError(funcName + ': \"kernel\" must be a str!')
     
@@ -322,8 +361,42 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Convert any color space to YUV/YCoCg with/without sub-sampling.
 ## If input is RGB, it's assumed to be of full range.
-##     Thus, limited range RGB input should be manually converted to full range first before call this function.
+##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
 ## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB
+################################################################################################################################
+## Basic parameters
+##     input {clip}: clip to be converted
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     matrix {int|str}: color matrix of output clip
+##         Guide the conversion coefficients from RGB to YUV.
+##         Check the information about GetMatrix() for available values.
+##         If not specified, it will be guessed according to the color family and size of input clip.
+##     css {str}: chroma sub-sampling of output clip, similar to the one in fmtc.resample
+##         If two number is defined, then the first is width sub-sampling and the second is height sub-sampling.
+##         For example, "11" is 4:4:4, "21" is 4:2:2, "22" is 4:2:0.
+##         preset values:
+##         - "444" or "4:4:4": "11"
+##         - "440" or "4:4:0": "12"
+##         - "422" or "4:2:2": "21"
+##         - "420" or "4:2:0": "22"
+##         - "411" or "4:1:1": "41"
+##         - "410" or "4:1:0": "42"
+##         Default is 4:4:4 for RGB/Gray input, same as input for YUV/YCoCg input
+##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
+##         If not specified, it's the same as that of the input clip.
+##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##         If not specified, it's the same as that of the input clip.
+##     full {bool}: define if input/output Gray/YUV/YCoCg clip is of full range
+##         If not specified, it will be guessed according to the color family of input clip and "matrix".
+################################################################################################################################
+## Parameters of depth conversion
+##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##         same as those in Depth()
+################################################################################################################################
+## Parameters of resampling
+##     kernel, taps, a1, a2, cplace:
+##         used for chroma re-sampling, same as those in fmtc.resample
+##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
@@ -362,7 +435,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     elif full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP":
+        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -400,7 +473,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP":
             fulld = True
         else:
-            fulld = False if sIsYUV or sIsGRAY else True
+            fulld = True if sIsYCOCG else False
     elif not isinstance(full, int):
         raise ValueError(funcName + ': \"full\" must be a bool!')
     else:
@@ -450,8 +523,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if kernel is None:
         kernel = "bicubic"
         if a1 is None and a2 is None:
-            a1 = 1/3
-            a2 = 1/3
+            a1 = 0
+            a2 = 0.5
     elif not isinstance(kernel, str):
         raise ValueError(funcName + ': \"kernel\" must be a str!')
     
@@ -525,17 +598,17 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     pre {clip}: optional pre-filtered clip for basic estimate, must be of the same format as the input clip
 ##         should be better suited for block-matching than the input clip.
 ##     ref {clip}: optional basic estimate clip, must be of the same format as the input clip
-##         If defined, it will replace the basic estimate of BM3D, served as reference clip for final estimate.
+##         If defined, it will replace the basic estimate of BM3D and serve as the reference clip for final estimate.
 ##     psample {int}: internal processed precision. Default 0.
 ##         - 0 - 16-bit integer, less accuracy, less memory consumption
 ##         - 1 - 32-bit float, more accuracy, more memory consumption
 ################################################################################################################################
 ## Parameters of input properties
-##     matrix {int|str}: color matrix of input clip
-##         Check GetMatrix() for available values.
-##         If not specified, it will be guessed according to color family and size of input clip.
+##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
+##         Check the information about GetMatrix() for available values.
+##         If not specified, it will be guessed according to the color family and size of input clip.
 ##     full {bool}: define if input clip is of full range
-##         If not specified, it will be guessed according to color family and "matrix".
+##         If not specified, it will be guessed according to the color family of input clip and "matrix".
 ################################################################################################################################
 ## Parameters of output properties
 ##     output {int}: type of output clip, doesn't make sense for Gray input
@@ -543,7 +616,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         - 1 - full range RGB (converted from input clip)
 ##         - 2 - full range OPP (converted from full range RGB, the color space where processing is done)
 ##     css {str}: chroma subsampling of output clip, only valid when output=0 and input clip is YUV/YCoCg
-##         Available values are "444", "422", "420", "411", "4:4:4", "4:2:2", "4:2:0" and "4:1:1".
+##         Check the information about ToYUV() for available values.
 ##         Default value is the same as that of the input clip
 ##     depth {int}: bit depth of output clip, can be 8-16 for integer or 16/32 for float
 ##         Default value is the same as that of the input clip
@@ -555,8 +628,12 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
-##     kernel, taps, a1, a2, cplace:
-##         used for chroma re-sampling, same as those in fmtc.resample
+##     cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace:
+##         used for chroma up-sampling, same as those in fmtc.resample
+##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
+##     cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace:
+##         used for chroma down-sampling, same as those in fmtc.resample
+##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 ## Parameters of BM3D basic estimate
 ##     block_size1, block_step1, group_size1, bm_range1, bm_step1, ps_num1, ps_range1, ps_step1, th_mse1, hard_thr:
@@ -571,7 +648,8 @@ refine=None, pre=None, ref=None, psample=None, \
 matrix=None, full=None, \
 output=None, css=None, depth=None, sample=None, \
 dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None, \
+cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None, \
+cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None, \
 block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None, \
 block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=None, ps_num2=None, ps_range2=None, ps_step2=None, th_mse2=None):
     # Set VS core and function name
@@ -605,7 +683,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP":
+        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -646,6 +724,9 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             css = "42"
         dHSubS = int(css[0])
         dVSubS = int(css[1])
+    
+    if cu_cplace is not None and cd_cplace is None:
+        cd_cplace = cu_cplace
     
     # Parameters processing
     if sigma is None:
@@ -766,22 +847,22 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     else:
         # Convert input to full range RGB
         clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert full range RGB to full range OPP
         clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert OPP to Gray if only Y is processed
         srcOPP = clip
         if sigma[1] <= 0 and sigma[2] <= 0:
@@ -846,11 +927,11 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         if output <= 1:
             # Convert full range OPP to full range RGB
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV/YCoCg
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, kernel, taps, a1, a2, cplace)
+            dither, useZ, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
         else:
             # Depth conversion for RGB or OPP output
             clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
@@ -867,7 +948,27 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 
 ################################################################################################################################
 ## Helper function: GetMatrix()
-## Get string format parameter "matrix"
+################################################################################################################################
+## Return string format parameter "matrix"
+################################################################################################################################
+## Parameters
+##     input: the source clip to be evaluated
+##         When "matrix" is not specified, it will be guessed according to the color family and size of input clip.
+##     matrix: explicitly specify matrix in int or str format, not case-sensitive
+##         - 0 | "RGB"
+##         - 1 | "709" | "bt709"
+##         - 2 | "Unspecified": same as not specified (None)
+##         - 4 | "FCC"
+##         - 5 | "bt470bg": same as "601"
+##         - 6 | "601" | "smpte170m"
+##         - 7 | "240" | "smpte240m"
+##         - 8 | "YCgCo" | "YCoCg"
+##         - 9 | "2020" | "bt2020nc"
+##         - 10 | "2020cl" | "bt2020c"
+##         - 100 | "OPP" | "opponent": same as the opponent color space used in BM3D denoising filter
+##     dIsRGB: specify if the target is RGB
+##         If source and target are both RGB and "matrix" is not specified, then assume matrix="RGB"
+##         Default False for RGB input, otherwise True.
 ################################################################################################################################
 def GetMatrix(input, matrix=None, dIsRGB=None):
     # Set VS core and function name
