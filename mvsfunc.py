@@ -55,7 +55,7 @@ import vapoursynth as vs
 ##             full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
 ##             The standard definition is [0, (1 << depth) - 1] thus z.Depth is preferred in this case.
 ##             Though it can be weird for full range chroma, which is [0.5, 1 << (depth - 1), (1 << depth) - 0.5].
-##         When 11-,13-,14-,15-bit integer or 16-bit float is involved, z.Depth is always used.
+##         When 13-,15-bit integer or 16-bit float is involved, z.Depth is always used.
 ##         - None - automatically determined (default)
 ##         - False - force fmtc.bitdepth
 ##         - True - force z.Depth
@@ -128,9 +128,9 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         useZ = (sSType == vs.INTEGER and fulls) or (dSType == vs.INTEGER and fulld)
     elif not isinstance(useZ, int):
         raise ValueError(funcName + ': \"useZ\" must be a bool!')
-    if sSType == vs.INTEGER and (sbitPS == 11 or sbitPS == 13 or sbitPS == 14 or sbitPS == 15):
+    if sSType == vs.INTEGER and (sbitPS == 13 or sbitPS == 15):
         useZ = True
-    if dSType == vs.INTEGER and (dbitPS == 11 or dbitPS == 13 or dbitPS == 14 or dbitPS == 15):
+    if dSType == vs.INTEGER and (dbitPS == 13 or dbitPS == 15):
         useZ = True
     if (sSType == vs.FLOAT and sbitPS < 32) or (dSType == vs.FLOAT and dbitPS < 32):
         useZ = True
