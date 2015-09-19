@@ -942,6 +942,182 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 
 
 ################################################################################################################################
+## Frame property functions below
+################################################################################################################################
+
+
+################################################################################################################################
+## Frame property function: SetColorSpace()
+################################################################################################################################
+## Modify the color space related frame properties in the given clip.
+## Detailed descriptions of these properties: http://www.vapoursynth.com/doc/apireference.html
+################################################################################################################################
+## Parameters
+##     - None: do nothing
+##     - True: do nothing
+##     - False: delete corresponding frame properties if exist
+##     - {int}: set to this value
+################################################################################################################################
+def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Matrix=None, Transfer=None):
+    # Set VS core
+    core = vs.get_core()
+    funcName = 'SetColorSpace'
+    
+    # Modify frame properties
+    if ChromaLocation is None:
+    elif isinstance(ChromaLocation, bool):
+        if ChromaLocation is False:
+            clip = core.std.SetFrameProp(clip, prop='_ChromaLocation', delete=True)
+    elif isinstance(ChromaLocation, int):
+        if ChromaLocation >= 0 and ChromaLocation <=5:
+            clip = core.std.SetFrameProp(clip, prop='_ChromaLocation', intval=ChromaLocation)
+        else:
+            raise ValueError(funcName + ': valid range of \"ChromaLocation\" is [0, 5]!')
+    else:
+        raise ValueError(funcName + ': \"ChromaLocation\" must be a int or a bool!')
+    
+    if ColorRange is None:
+    elif isinstance(ColorRange, bool):
+        if ColorRange is False:
+            clip = core.std.SetFrameProp(clip, prop='_ColorRange', delete=True)
+    elif isinstance(ColorRange, int):
+        if ColorRange >= 0 and ColorRange <=1:
+            clip = core.std.SetFrameProp(clip, prop='_ColorRange', intval=ColorRange)
+        else:
+            raise ValueError(funcName + ': valid range of \"ColorRange\" is [0, 1]!')
+    else:
+        raise ValueError(funcName + ': \"ColorRange\" must be a int or a bool!')
+    
+    if Primaries is None:
+    elif isinstance(Primaries, bool):
+        if Primaries is False:
+            clip = core.std.SetFrameProp(clip, prop='_Primaries', delete=True)
+    elif isinstance(Primaries, int):
+        clip = core.std.SetFrameProp(clip, prop='_Primaries', intval=Primaries)
+    else:
+        raise ValueError(funcName + ': \"Primaries\" must be a int or a bool!')
+    
+    if Matrix is None:
+    elif isinstance(Matrix, bool):
+        if Matrix is False:
+            clip = core.std.SetFrameProp(clip, prop='_Matrix', delete=True)
+    elif isinstance(Matrix, int):
+        clip = core.std.SetFrameProp(clip, prop='_Matrix', intval=Matrix)
+    else:
+        raise ValueError(funcName + ': \"Matrix\" must be a int or a bool!')
+    
+    if Transfer is None:
+    elif isinstance(Transfer, bool):
+        if Transfer is False:
+            clip = core.std.SetFrameProp(clip, prop='_Transfer', delete=True)
+    elif isinstance(Transfer, int):
+        clip = core.std.SetFrameProp(clip, prop='_Transfer', intval=Transfer)
+    else:
+        raise ValueError(funcName + ': \"Transfer\" must be a int or a bool!')
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
+## Frame property function: AssumeFrame()
+################################################################################################################################
+## Set all the frames in the given clip to be frame-based(progressive).
+## It can be used to prevent the field order set in de-interlace filters from being overridden by the frame property '_FieldBased'.
+## Also it may be useful to be applied before upscaling or anti-aliasing scripts using EEDI3/nnedi3, etc.(whose field order should be specified explicitly)
+################################################################################################################################
+def AssumeFrame(clip):
+    # Set VS core
+    core = vs.get_core()
+    
+    # Modify frame properties
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=0)
+    clip = core.std.SetFrameProp(clip, prop='_Field', delete=True)
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
+## Frame property function: AssumeTFF()
+################################################################################################################################
+## Set all the frames in the given clip to be top-field-first(interlaced).
+## This frame property will override the field order set in those de-interlace filters.
+################################################################################################################################
+def AssumeTFF(clip):
+    # Set VS core
+    core = vs.get_core()
+    
+    # Modify frame properties
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=1)
+    clip = core.std.SetFrameProp(clip, prop='_Field', delete=True)
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
+## Frame property function: AssumeBFF()
+################################################################################################################################
+## Set all the frames in the given clip to be bottom-field-first(interlaced).
+## This frame property will override the field order set in those de-interlace filters.
+################################################################################################################################
+def AssumeBFF(clip):
+    # Set VS core
+    core = vs.get_core()
+    
+    # Modify frame properties
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=2)
+    clip = core.std.SetFrameProp(clip, prop='_Field', delete=True)
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
+## Frame property function: AssumeField()
+################################################################################################################################
+## Set all the frames in the given clip to be field-based(derived from interlaced frame).
+################################################################################################################################
+## Parameters
+##     top {bool}:
+##         - True - top-field-based
+##         - False - bottom-field-based
+################################################################################################################################
+def AssumeField(clip, top):
+    # Set VS core
+    core = vs.get_core()
+    
+    # Modify frame properties
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=0)
+    clip = core.std.SetFrameProp(clip, prop='_Field', intval=1 if top else 0)
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
+## Frame property function: AssumeCombed()
+################################################################################################################################
+## Set all the frames in the given clip to be combed or not.
+################################################################################################################################
+## Parameters
+##     combed {bool}:
+##         - True - add '_Combed' hints (default)
+##         - False - delete '_Combed' hints if exist
+################################################################################################################################
+def AssumeCombed(clip, combed=True):
+    # Set VS core
+    core = vs.get_core()
+    
+    # Modify frame properties
+    clip = core.std.SetFrameProp(clip, prop='_Combed', delete=not combed)
+    
+    # Output
+    return clip
+
+
+################################################################################################################################
 ## Helper functions below
 ################################################################################################################################
 

@@ -5,6 +5,11 @@ __pycache__/
 # VapourSynth Python script
 *.vpy
 
+# Archive
+*.zip
+*.rar
+*.7z
+
 # Tested images
 *.png
 
