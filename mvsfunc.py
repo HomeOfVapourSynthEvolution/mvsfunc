@@ -92,6 +92,8 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         fulls = False if sIsYUV or sIsGRAY else True
     elif not isinstance(fulls, int):
         raise ValueError(funcName + ': \"fulls\" must be a bool!')
+    else:
+        clip = SetColorSpace(clip, ColorRange=0 if fulls else 1)
     
     # Get properties of output clip
     if depth is None:
@@ -197,6 +199,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
     
     # Output
+    clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     return clip
 ################################################################################################################################
 
@@ -243,6 +246,9 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"input\" must be a clip!')
     
     # Get string format parameter "matrix"
+    if matrix is not None:
+        matrix_id = GetMatrix(input, matrix, True, True)
+        clip = SetColorSpace(clip, False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, True)
     
     # Get properties of input clip
@@ -410,6 +416,9 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"input\" must be a clip!')
     
     # Get string format parameter "matrix"
+    if matrix is not None:
+        matrix_id = GetMatrix(input, matrix, False, True)
+        clip = SetColorSpace(clip, False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, False)
     
     # Get properties of input clip
@@ -959,9 +968,12 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 ##     - {int}: set to this value
 ################################################################################################################################
 def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Matrix=None, Transfer=None):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
     funcName = 'SetColorSpace'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     if ChromaLocation is None:
@@ -1027,8 +1039,12 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
 ## Also it may be useful to be applied before upscaling or anti-aliasing scripts using EEDI3/nnedi3, etc.(whose field order should be specified explicitly)
 ################################################################################################################################
 def AssumeFrame(clip):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
+    funcName = 'AssumeFrame'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=0)
@@ -1045,8 +1061,12 @@ def AssumeFrame(clip):
 ## This frame property will override the field order set in those de-interlace filters.
 ################################################################################################################################
 def AssumeTFF(clip):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
+    funcName = 'AssumeTFF'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=1)
@@ -1063,8 +1083,12 @@ def AssumeTFF(clip):
 ## This frame property will override the field order set in those de-interlace filters.
 ################################################################################################################################
 def AssumeBFF(clip):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
+    funcName = 'AssumeBFF'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=2)
@@ -1085,8 +1109,12 @@ def AssumeBFF(clip):
 ##         - False - bottom-field-based
 ################################################################################################################################
 def AssumeField(clip, top):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
+    funcName = 'AssumeField'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=0)
@@ -1107,8 +1135,12 @@ def AssumeField(clip, top):
 ##         - False - delete '_Combed' hints if exist
 ################################################################################################################################
 def AssumeCombed(clip, combed=True):
-    # Set VS core
+    # Set VS core and function name
     core = vs.get_core()
+    funcName = 'AssumeCombed'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise ValueError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_Combed', delete=not combed)
@@ -1133,20 +1165,23 @@ def AssumeCombed(clip, combed=True):
 ##     matrix: explicitly specify matrix in int or str format, not case-sensitive
 ##         - 0 | "RGB"
 ##         - 1 | "709" | "bt709"
-##         - 2 | "Unspecified": same as not specified (None)
+##         - 2 | "Unspecified" - same as not specified (None)
 ##         - 4 | "FCC"
-##         - 5 | "bt470bg": same as "601"
+##         - 5 | "bt470bg" - same as "601"
 ##         - 6 | "601" | "smpte170m"
 ##         - 7 | "240" | "smpte240m"
 ##         - 8 | "YCgCo" | "YCoCg"
 ##         - 9 | "2020" | "bt2020nc"
 ##         - 10 | "2020cl" | "bt2020c"
-##         - 100 | "OPP" | "opponent": same as the opponent color space used in BM3D denoising filter
-##     dIsRGB: specify if the target is RGB
+##         - 100 | "OPP" | "opponent" - same as the opponent color space used in BM3D denoising filter
+##     dIsRGB {bool}: specify if the target is RGB
 ##         If source and target are both RGB and "matrix" is not specified, then assume matrix="RGB"
 ##         Default False for RGB input, otherwise True.
+##     id {bool}:
+##         - False - output matrix name{string} (default)
+##         - True - output matrix id{int}
 ################################################################################################################################
-def GetMatrix(input, matrix=None, dIsRGB=None):
+def GetMatrix(input, matrix=None, dIsRGB=None, id=False):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'GetMatrix'
@@ -1170,6 +1205,10 @@ def GetMatrix(input, matrix=None, dIsRGB=None):
         dIsRGB = not sIsRGB
     elif not isinstance(dIsRGB, int):
         raise ValueError(funcName + ': \"dIsRGB\" must be a bool!')
+    
+    # id
+    if not isinstance(id, int):
+        raise ValueError(funcName + ': \"id\" must be a bool!')
     
     # Resolution level
     noneD = False
@@ -1195,38 +1234,38 @@ def GetMatrix(input, matrix=None, dIsRGB=None):
         if isinstance(matrix, str):
             matrix = matrix.lower()
         if matrix == 0 or matrix == "rgb": # GBR
-            matrix = "RGB"
+            matrix = 0 if id else "RGB"
         elif matrix == 1 or matrix == "709" or matrix == "bt709": # bt709
-            matrix = "709"
+            matrix = 1 if id else "709"
         elif matrix == 2 or matrix == "unspecified": # Unspecified
-            matrix = "Unspecified"
+            matrix = 2 if id else "Unspecified"
         elif matrix == 4 or matrix == "fcc": # fcc
-            matrix = "FCC"
+            matrix = 4 if id else "FCC"
         elif matrix == 5 or matrix == "bt470bg": # bt470bg
-            matrix = "601"
+            matrix = 5 if id else "601"
         elif matrix == 6 or matrix == "601" or matrix == "smpte170m": # smpte170m
-            matrix = "601"
+            matrix = 6 if id else "601"
         elif matrix == 7 or matrix == "240" or matrix == "smpte240m": # smpte240m
-            matrix = "240"
+            matrix = 7 if id else "240"
         elif matrix == 8 or matrix == "ycgco" or matrix == "ycocg": # YCgCo
-            matrix = "YCgCo"
+            matrix = 8 if id else "YCgCo"
         elif matrix == 9 or matrix == "2020" or matrix == "bt2020nc": # bt2020nc
-            matrix = "2020"
+            matrix = 9 if id else "2020"
         elif matrix == 10 or matrix == "2020cl" or matrix == "bt2020c": # bt2020c
-            matrix = "2020cl"
+            matrix = 10 if id else "2020cl"
         elif matrix == 100 or matrix == "opp" or matrix == "opponent": # opponent color space
-            matrix = "OPP"
+            matrix = 100 if id else "OPP"
         else:
             raise ValueError(funcName + ': Unsupported matrix specified!')
     
     # If unspecified, automatically determine it based on color family and resolution level
-    if matrix == "Unspecified": 
+    if matrix == 2 or matrix == "Unspecified":
         if dIsRGB and sIsRGB:
-            matrix = "RGB"
+            matrix = 0 if id else "RGB"
         elif sIsYCOCG:
-            matrix = "YCgCo"
+            matrix = 8 if id else "YCgCo"
         else:
-            matrix = "601" if SD else "2020" if UHD else "709"
+            matrix = (6 if id else "601") if SD else (9 if id else "2020") if UHD else (1 if id else "709")
     
     # Output
     return matrix
