@@ -43,30 +43,31 @@ import vapoursynth as vs
 ##     input {clip}: clip to be converted
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     fulls {bool}: define if input clip is of full range
-##         If not specified, it will be guessed according to the color family of input clip.
+##         default: assume True for RGB/YCgCo input, assume False for Gray/YUV input
 ##     fulld {bool}: define if output clip is of full range
-##         Default is the same as fulls.
+##         default is the same as "fulls"
 ################################################################################################################################
 ## Advanced parameters
 ##     dither {int|str}: dithering algorithm applied for depth conversion
-##         For int, it's the same as "dmode" in fmtc.bitdepth, it can be automatically converted if using z.Depth
-##         For str, it's the same as "dither" in z.Depth, it can be automatically converted if using fmtc.bitdepth
-##         If not specified:
-##             output depth == 32 or conversion without quantization error: 1 | "none"
-##             otherwise: 3 | "random"
+##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using z.Depth
+##         - {str}: same as "dither" in z.Depth, will be automatically converted if using fmtc.bitdepth
+##         - default:
+##             - output depth is 32, and conversions without quantization error: 1 | "none"
+##             - otherwise: 3 | "error_diffusion"
 ##     useZ {bool}: force using of z.Depth or fmtc.bitdepth for depth conversion
 ##         By default, z.Depth is used when full range integer is involved.
-##             full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
+##             Full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
 ##             The standard definition is [0, (1 << depth) - 1] thus z.Depth is preferred in this case.
 ##             Though it can be weird for full range chroma, which is [0.5, 1 << (depth - 1), (1 << depth) - 0.5].
 ##         When 13-,15-bit integer or 16-bit float is involved, z.Depth is always used.
-##         - None - automatically determined (default)
-##         - False - force fmtc.bitdepth
-##         - True - force z.Depth
+##         - None: automatically determined
+##         - False: force fmtc.bitdepth
+##         - True: force z.Depth
+##         default: None
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
 ##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using z.Depth
@@ -153,7 +154,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
             dither = "none" if useZ else 1
         else:
-            dither = "random" if useZ else 3
+            dither = "error_diffusion" if useZ else 3
     elif not isinstance(dither, int) and not isinstance(dither, str):
         raise TypeError(funcName + ': \"dither\" must be a int or str!')
     else:
@@ -223,15 +224,15 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##     input {clip}: clip to be converted
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
-##         Guide the conversion coefficients from YUV to RGB.
-##         Check the information about GetMatrix() for available values.
-##         If not specified, it will be guessed according to the color family and size of input clip.
+##         decides the conversion coefficients from YUV to RGB
+##         check GetMatrix() for available values
+##         default: guessed according to the color family and size of input clip
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     full {bool}: define if input clip is of full range
-##         If not specified, it will be guessed according to the color family of input clip and "matrix".
+##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
 ##     dither, useZ, ampo, ampn, dyn, staticnoise:
@@ -240,7 +241,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ## Parameters of resampling
 ##     kernel, taps, a1, a2, cplace:
 ##         used for chroma re-sampling, same as those in fmtc.resample
-##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
+##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
@@ -382,26 +383,26 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     input {clip}: clip to be converted
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
 ##     matrix {int|str}: color matrix of output clip
-##         Guide the conversion coefficients from RGB to YUV.
-##         Check the information about GetMatrix() for available values.
-##         If not specified, it will be guessed according to the color family and size of input clip.
+##         decides the conversion coefficients from RGB to YUV
+##         check GetMatrix() for available values
+##         default: guessed according to the color family and size of input clip
 ##     css {str}: chroma sub-sampling of output clip, similar to the one in fmtc.resample
-##         If two number is defined, then the first is width sub-sampling and the second is height sub-sampling.
+##         If two number is defined, then the first is horizontal sub-sampling and the second is vertical sub-sampling.
 ##         For example, "11" is 4:4:4, "21" is 4:2:2, "22" is 4:2:0.
 ##         preset values:
-##         - "444" or "4:4:4": "11"
-##         - "440" or "4:4:0": "12"
-##         - "422" or "4:2:2": "21"
-##         - "420" or "4:2:0": "22"
-##         - "411" or "4:1:1": "41"
-##         - "410" or "4:1:0": "42"
-##         Default is 4:4:4 for RGB/Gray input, same as input for YUV/YCoCg input
+##         - "444" | "4:4:4" | "11"
+##         - "440" | "4:4:0" | "12"
+##         - "422" | "4:2:2" | "21"
+##         - "420" | "4:2:0" | "22"
+##         - "411" | "4:1:1" | "41"
+##         - "410" | "4:1:0" | "42"
+##         default: 4:4:4 for RGB/Gray input, same as input is for YUV/YCoCg input
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
-##         If not specified, it's the same as that of the input clip.
+##         default is the same as that of the input clip
 ##     full {bool}: define if input/output Gray/YUV/YCoCg clip is of full range
-##         If not specified, it will be guessed according to the color family of input clip and "matrix".
+##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
 ##     dither, useZ, ampo, ampn, dyn, staticnoise:
@@ -410,7 +411,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ## Parameters of resampling
 ##     kernel, taps, a1, a2, cplace:
 ##         used for chroma re-sampling, same as those in fmtc.resample
-##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
+##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
@@ -598,47 +599,57 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ## Basic parameters
 ##     input {clip}: clip to be filtered
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
-##     sigma {float[]|int[]}: same as "sigma" in BM3D, used for both basic estimate and final estimate
-##         Controls the strength of filtering, should be carefully adjusted according to noise in the source.
-##         Default [5.0,5.0,5.0]. Set 0 to disable the filtering of corresponding plane.
-##     radius1 {int}: temporal radius of basic estimate, 0 uses BM3D, 1-16 is the radius for V-BM3D. Default 0.
-##     radius2 {int}: temporal radius of final estimate. Default is the same as radius1.
-##     profile1 {str}: same as "profile" in BM3D basic estimate. Default "fast".
-##     profile2 {str}: same as "profile" in BM3D final estimate. Default is the same as profile1.
+##     sigma {float[]}: same as "sigma" in BM3D, used for both basic estimate and final estimate
+##         the strength of filtering, should be carefully adjusted according to the noise
+##         set 0 to disable the filtering of corresponding plane
+##         default: [5.0,5.0,5.0]
+##     radius1 {int}: temporal radius of basic estimate
+##         - 0: BM3D (spatial denoising)
+##         - 1~16: temporal radius of V-BM3D (spatial-temporal denoising)
+##         default: 0
+##     radius2 {int}: temporal radius of final estimate
+##         default is the same as "radius1"
+##     profile1 {str}: same as "profile" in BM3D basic estimate
+##         default: "fast"
+##     profile2 {str}: same as "profile" in BM3D final estimate
+##         default is the same as "profile1"
 ################################################################################################################################
 ## Advanced parameters
-##     refine {int}: refinement times. Default 1.
-##         - 0 - basic estimate only
-##         - 1 - basic estimate + final estimate, the default behavior of BM3D
-##         - n - basic estimate + final estimate refine n times
-##             each final estimate take the previously filtered clip as reference clip to filter the input clip
-##     pre {clip}: optional pre-filtered clip for basic estimate, must be of the same format as the input clip
-##         should be better suited for block-matching than the input clip.
-##     ref {clip}: optional basic estimate clip, must be of the same format as the input clip
-##         If defined, it will replace the basic estimate of BM3D and serve as the reference clip for final estimate.
-##     psample {int}: internal processed precision. Default 0.
-##         - 0 - 16-bit integer, less accuracy, less memory consumption
-##         - 1 - 32-bit float, more accuracy, more memory consumption
+##     refine {int}: refinement times
+##         - 0: basic estimate only
+##         - 1: basic estimate + refined with final estimate, the original behavior of BM3D
+##         - n: basic estimate + refined with final estimate for n times
+##             each final estimate takes the filtered clip in previous estimate as reference clip to filter the input clip
+##         default: 1
+##     pre {clip} (optional): pre-filtered clip for basic estimate, must be of the same format as the input clip
+##         should be a clip better suited for block-matching than the input clip
+##     ref {clip} (optional): basic estimate clip, must be of the same format as the input clip
+##         replace the basic estimate of BM3D and serve as the reference clip for final estimate
+##     psample {int}: internal processed precision
+##         - 0: 16-bit integer, less accuracy, less memory consumption
+##         - 1: 32-bit float, more accuracy, more memory consumption
+##         default: 0
 ################################################################################################################################
 ## Parameters of input properties
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
-##         Check the information about GetMatrix() for available values.
-##         If not specified, it will be guessed according to the color family and size of input clip.
+##         check GetMatrix() for available values
+##         default: guessed according to the color family and size of input clip
 ##     full {bool}: define if input clip is of full range
-##         If not specified, it will be guessed according to the color family of input clip and "matrix".
+##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of output properties
 ##     output {int}: type of output clip, doesn't make sense for Gray input
-##         - 0 - same as input clip
-##         - 1 - full range RGB (converted from input clip)
-##         - 2 - full range OPP (converted from full range RGB, the color space where processing is done)
+##         - 0: same format as input clip
+##         - 1: full range RGB (converted from input clip)
+##         - 2: full range OPP (converted from full range RGB, the color space where the filtering takes place)
+##         default: 0
 ##     css {str}: chroma subsampling of output clip, only valid when output=0 and input clip is YUV/YCoCg
-##         Check the information about ToYUV() for available values.
-##         Default value is the same as that of the input clip
+##         check ToYUV() for available values
+##         default is the same as that of the input clip
 ##     depth {int}: bit depth of output clip, can be 8-16 for integer or 16/32 for float
-##         Default value is the same as that of the input clip
-##     sample {int}: sample type of output clip, can be 0(vs.INTEGER) or 11(vs.FLOAT)
-##         Default value is the same as that of the input clip
+##         default is the same as that of the input clip
+##     sample {int}: sample type of output clip, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##         default is the same as that of the input clip
 ################################################################################################################################
 ## Parameters of depth conversion
 ##     dither, useZ, ampo, ampn, dyn, staticnoise:
@@ -647,10 +658,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ## Parameters of resampling
 ##     cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace:
 ##         used for chroma up-sampling, same as those in fmtc.resample
-##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
+##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ##     cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace:
 ##         used for chroma down-sampling, same as those in fmtc.resample
-##         Default is kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
+##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 ## Parameters of BM3D basic estimate
 ##     block_size1, block_step1, group_size1, bm_range1, bm_step1, ps_num1, ps_range1, ps_step1, th_mse1, hard_thr:
@@ -970,10 +981,11 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 ## Detailed descriptions of these properties: http://www.vapoursynth.com/doc/apireference.html
 ################################################################################################################################
 ## Parameters
-##     - None: do nothing
-##     - True: do nothing
-##     - False: delete corresponding frame properties if exist
-##     - {int}: set to this value
+##     %Any%: for the property named "_%Any%"
+##         - None: do nothing
+##         - True: do nothing
+##         - False: delete corresponding frame properties if exist
+##         - {int}: set to this value
 ################################################################################################################################
 def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Matrix=None, Transfer=None):
     # Set VS core and function name
@@ -1037,6 +1049,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1060,6 +1073,7 @@ def AssumeFrame(clip):
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1082,6 +1096,7 @@ def AssumeTFF(clip):
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1104,6 +1119,7 @@ def AssumeBFF(clip):
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1113,8 +1129,8 @@ def AssumeBFF(clip):
 ################################################################################################################################
 ## Parameters
 ##     top {bool}:
-##         - True - top-field-based
-##         - False - bottom-field-based
+##         - True: top-field-based
+##         - False: bottom-field-based
 ################################################################################################################################
 def AssumeField(clip, top):
     # Set VS core and function name
@@ -1130,6 +1146,7 @@ def AssumeField(clip, top):
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1139,8 +1156,9 @@ def AssumeField(clip, top):
 ################################################################################################################################
 ## Parameters
 ##     combed {bool}:
-##         - True - add '_Combed' hints (default)
-##         - False - delete '_Combed' hints if exist
+##         - True: add '_Combed' hints
+##         - False: delete '_Combed' hints if exist
+##         default: True
 ################################################################################################################################
 def AssumeCombed(clip, combed=True):
     # Set VS core and function name
@@ -1155,6 +1173,7 @@ def AssumeCombed(clip, combed=True):
     
     # Output
     return clip
+################################################################################################################################
 
 
 ################################################################################################################################
@@ -1165,40 +1184,41 @@ def AssumeCombed(clip, combed=True):
 ################################################################################################################################
 ## Helper function: GetMatrix()
 ################################################################################################################################
-## Return string format parameter "matrix"
+## Return str or int format parameter "matrix"
 ################################################################################################################################
 ## Parameters
-##     input: the source clip to be evaluated
-##         When "matrix" is not specified, it will be guessed according to the color family and size of input clip.
+##     clip: the source clip
 ##     matrix: explicitly specify matrix in int or str format, not case-sensitive
 ##         - 0 | "RGB"
 ##         - 1 | "709" | "bt709"
-##         - 2 | "Unspecified" - same as not specified (None)
+##         - 2 | "Unspecified": same as not specified (None)
 ##         - 4 | "FCC"
-##         - 5 | "bt470bg" - same as "601"
+##         - 5 | "bt470bg": same as "601"
 ##         - 6 | "601" | "smpte170m"
 ##         - 7 | "240" | "smpte240m"
 ##         - 8 | "YCgCo" | "YCoCg"
 ##         - 9 | "2020" | "bt2020nc"
 ##         - 10 | "2020cl" | "bt2020c"
-##         - 100 | "OPP" | "opponent" - same as the opponent color space used in BM3D denoising filter
+##         - 100 | "OPP" | "opponent": same as the opponent color space used in BM3D denoising filter
+##         default: guessed according to the color family and size of input clip
 ##     dIsRGB {bool}: specify if the target is RGB
-##         If source and target are both RGB and "matrix" is not specified, then assume matrix="RGB"
-##         Default False for RGB input, otherwise True.
+##         If source and target are both RGB and "matrix" is not specified, then assume matrix="RGB".
+##         default: False for RGB input, otherwise True
 ##     id {bool}:
-##         - False - output matrix name{string} (default)
-##         - True - output matrix id{int}
+##         - False: output matrix name{str}
+##         - True: output matrix id{int}
+##         default: False
 ################################################################################################################################
-def GetMatrix(input, matrix=None, dIsRGB=None, id=False):
+def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'GetMatrix'
     
-    if not isinstance(input, vs.VideoNode):
-        raise TypeError(funcName + ': \"input\" must be a clip!')
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
     
     # Get properties of input clip
-    sFormat = input.format
+    sFormat = clip.format
     
     sColorFamily = sFormat.color_family
     sIsRGB = sColorFamily == vs.RGB
@@ -1224,11 +1244,11 @@ def GetMatrix(input, matrix=None, dIsRGB=None, id=False):
     HD = False
     UHD = False
     
-    if input.width <= 0 or input.height <= 0:
+    if clip.width <= 0 or clip.height <= 0:
         noneD = True
-    elif input.width <= 1024 and input.height <= 576:
+    elif clip.width <= 1024 and clip.height <= 576:
         SD = True
-    elif input.width <= 2048 and input.height <= 1536:
+    elif clip.width <= 2048 and clip.height <= 1536:
         HD = True
     else:
         UHD = True
