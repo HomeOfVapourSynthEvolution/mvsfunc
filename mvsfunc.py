@@ -1576,8 +1576,9 @@ def AssumeField(clip, top):
 ################################################################################################################################
 ## Parameters
 ##     combed {bool}:
-##         - True: add '_Combed' hints
-##         - False: delete '_Combed' hints if exist
+##         - None: delete property '_Combed' if exist
+##         - True: set property '_Combed' to 1
+##         - False: set property '_Combed' to 0
 ##         default: True
 ################################################################################################################################
 def AssumeCombed(clip, combed=True):
@@ -1589,7 +1590,12 @@ def AssumeCombed(clip, combed=True):
         raise TypeError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
-    clip = core.std.SetFrameProp(clip, prop='_Combed', delete=not combed)
+    if combed is None:
+        clip = core.std.SetFrameProp(clip, prop='_Combed', delete=True)
+    elif not isinstance(combed, int):
+        raise TypeError(funcName + ': \"combed\" must be a bool!')
+    else:
+        clip = core.std.SetFrameProp(clip, prop='_Combed', intval=combed)
     
     # Output
     return clip
