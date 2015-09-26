@@ -13,6 +13,15 @@
 ##     ToYUV
 ##     BM3D
 ################################################################################################################################
+## Utility functions:
+##     Min
+##     Max
+##     Avg
+##     MinFilter
+##     MaxFilter
+##     LimitFilter
+##     ShowAverage
+################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
 ##     AssumeFrame
@@ -30,7 +39,23 @@ import vapoursynth as vs
 
 
 ################################################################################################################################
+
+
+VSMaxPlaneNum = 3
+
+
+################################################################################################################################
+
+
+
+
+
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
 ## Main functions below
+################################################################################################################################
+################################################################################################################################
 ################################################################################################################################
 
 
@@ -621,9 +646,11 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         - n: basic estimate + refined with final estimate for n times
 ##             each final estimate takes the filtered clip in previous estimate as reference clip to filter the input clip
 ##         default: 1
-##     pre {clip} (optional): pre-filtered clip for basic estimate, must be of the same format as the input clip
+##     pre {clip} (optional): pre-filtered clip for basic estimate
+##         must be of the same format and dimension as the input clip
 ##         should be a clip better suited for block-matching than the input clip
-##     ref {clip} (optional): basic estimate clip, must be of the same format as the input clip
+##     ref {clip} (optional): basic estimate clip
+##         must be of the same format and dimension as the input clip
 ##         replace the basic estimate of BM3D and serve as the reference clip for final estimate
 ##     psample {int}: internal processed precision
 ##         - 0: 16-bit integer, less accuracy, less memory consumption
@@ -969,8 +996,396 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
 ################################################################################################################################
 
 
+
+
+
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+## Utility functions below
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: Min()
+################################################################################################################################
+## Take 2 clips and return pixel-wise minimum of them.
+## With a special mode=2 for difference clip.
+################################################################################################################################
+## Basic parameters
+##     clip1 {clip}: the first clip
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     clip2 {clip}: the second clip
+##         must be of the same format and dimension as "clip1"
+##     mode {int[]}: specify processing mode for each plane
+##         - 0: don't process, copy "clip1" to output
+##         - 1: normal minimum, output = min(clip1, clip2)
+##         - 2: difference minimum, output = abs(clip2 - neutral) < abs(clip1 - neutral) ? clip2 : clip1
+##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+################################################################################################################################
+## Advanced parameters
+##     neutral {int|float}: specfy the neutral value used for mode=2
+##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
+################################################################################################################################
+def Min(clip1, clip2, mode=None, neutral=None):
+    return _Operator2(clip1, clip2, mode, neutral, 'Min')
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: Max()
+################################################################################################################################
+## Take 2 clips and return pixel-wise maximum of them.
+## With a special mode=2 for difference clip.
+################################################################################################################################
+## Basic parameters
+##     clip1 {clip}: the first clip
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     clip2 {clip}: the second clip
+##         must be of the same format and dimension as "clip1"
+##     mode {int[]}: specify processing mode for each plane
+##         - 0: don't process, copy "clip1" to output
+##         - 1: normal maximum, output = max(clip1, clip2)
+##         - 2: difference maximum, output = abs(clip2 - neutral) > abs(clip1 - neutral) ? clip2 : clip1
+##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+################################################################################################################################
+## Advanced parameters
+##     neutral {int|float}: specfy the neutral value used for mode=2
+##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
+################################################################################################################################
+def Max(clip1, clip2, mode=None, neutral=None):
+    return _Operator2(clip1, clip2, mode, neutral, 'Max')
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: Avg()
+################################################################################################################################
+## Take 2 clips and return pixel-wise average of them.
+################################################################################################################################
+## Basic parameters
+##     clip1 {clip}: the first clip
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     clip2 {clip}: the second clip
+##         must be of the same format and dimension as "clip1"
+##     mode {int[]}: specify processing mode for each plane
+##         - 0: don't process, copy "clip1" to output
+##         - 1: average, output = (clip1 + clip2) / 2
+##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+################################################################################################################################
+def Avg(clip1, clip2, mode=None):
+    return _Operator2(clip1, clip2, mode, None, 'Avg')
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: MinFilter()
+################################################################################################################################
+## Apply filtering with minimum difference of the 2 filtered clips.
+################################################################################################################################
+## Basic parameters
+##     src {clip}: source clip
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     flt1 {clip}: filtered clip 1
+##         must be of the same format and dimension as "src"
+##     flt2 {clip}: filtered clip 2
+##         must be of the same format and dimension as "src"
+##     planes {int[]}: specify which planes to process
+##         unprocessed planes will be copied from "src"
+##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+################################################################################################################################
+def MinFilter(src, flt1, flt2, planes=None):
+    return _Min_Max_Filter(src, flt1, flt2, planes, 'MinFilter')
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: MaxFilter()
+################################################################################################################################
+## Apply filtering with maximum difference of the 2 filtered clips.
+################################################################################################################################
+## Basic parameters
+##     src {clip}: source clip
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     flt1 {clip}: filtered clip 1
+##         must be of the same format and dimension as "src"
+##     flt2 {clip}: filtered clip 2
+##         must be of the same format and dimension as "src"
+##     planes {int[]}: specify which planes to process
+##         unprocessed planes will be copied from "src"
+##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+################################################################################################################################
+def MaxFilter(src, flt1, flt2, planes=None):
+    return _Min_Max_Filter(src, flt1, flt2, planes, 'MaxFilter')
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: LimitFilter()
+################################################################################################################################
+## Similar to the AviSynth function Dither_limit_dif16() and HQDeringmod_limit_dif16().
+## It acts as a post-processor, and is very useful to limit the difference of filtering while avoiding artifacts.
+## Common used cases: de-banding, de-ringing, de-noising, sharpening, combing high precision source with low precision filtering, etc.
+################################################################################################################################
+## There are 2 implementations, default one with std.Expr, the other with std.Lut.
+## The Expr version supports all mode, while the Lut version doesn't support float input and ref clip.
+## Also the Lut version will truncate the filtering diff if it exceeds half the value range(128 for 8-bit, 32768 for 16-bit).
+## The Lut version might be faster than Expr version in some cases, for example 8-bit input and brighten_thr != thr.
+################################################################################################################################
+## Algorithm for Y/R/G/B plane (for chroma, replace "thr" and "brighten_thr" with "thrc")
+##     dif = flt - src
+##     dif_ref = flt - ref
+##     dif_abs = abs(dif_ref)
+##     thr_1 = brighten_thr if (dif > 0) else thr
+##     thr_2 = thr_1 * elast
+##
+##     if dif_abs <= thr_1:
+##         final = flt
+##     elif dif_abs >= thr_2:
+##         final = src
+##     else:
+##         final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
+################################################################################################################################
+## Basic parameters
+##     flt {clip}: filtered clip, to compute the filtering diff
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##     src {clip}: source clip, to apply the filtering diff
+##         must be of the same format and dimension as "flt"
+##     ref {clip} (optional): reference clip, to compute the weight to be applied on filtering diff
+##         must be of the same format and dimension as "flt"
+##         default: None (use "src")
+##     thr {float}: threshold (8-bit scale) to limit filtering diff
+##         default: 1.0
+##     elast {float}: elasticity of the soft threshold
+##         default: 2.0
+##     planes {int[]}: specify which planes to process
+##         unprocessed planes will be copied from "flt"
+##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+################################################################################################################################
+## Advanced parameters
+##     brighten_thr {float}: threshold (8-bit scale) for filtering diff that brightening the image (Y/R/G/B plane)
+##         set a value different from "thr" is useful to limit the overshoot/undershoot/blurring introduced in sharpening/de-ringing
+##         default is the same as "thr"
+##     thrc {float}: threshold (8-bit scale) for chroma (U/V/Co/Cg plane)
+##         default is the same as "thr"
+##     force_expr {bool}
+##         - True: force to use the std.Expr implementation
+##         - False: use the std.Lut implementation if possible
+##         default: True
+################################################################################################################################
+def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thrc=None, force_expr=None, planes=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'LimitFilter'
+    
+    if not isinstance(flt, vs.VideoNode):
+        raise TypeError(funcName + ': \"flt\" must be a clip!')
+    if not isinstance(src, vs.VideoNode):
+        raise TypeError(funcName + ': \"src\" must be a clip!')
+    if ref is not None and not isinstance(ref, vs.VideoNode):
+        raise TypeError(funcName + ': \"ref\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = flt.format
+    if sFormat.id != src.format.id:
+        raise ValueError(funcName + ': \"flt\" and \"src\" must be of the same format!')
+    if flt.width != src.width or flt.height != src.height:
+        raise ValueError(funcName + ': \"flt\" and \"src\" must be of the same width and height!')
+    
+    if ref is not None:
+        if sFormat.id != ref.format.id:
+            raise ValueError(funcName + ': \"flt\" and \"ref\" must be of the same format!')
+        if flt.width != ref.width or flt.height != ref.height:
+            raise ValueError(funcName + ': \"flt\" and \"ref\" must be of the same width and height!')
+    
+    sColorFamily = sFormat.color_family
+    sIsYUV = sColorFamily == vs.YUV
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    # Parameters
+    if thr is None:
+        thr = 1.0
+    elif isinstance(thr, int) or isinstance(thr, float):
+        if thr < 0:
+            raise ValueError(funcName + ':valid range of \"thr\" is [0, +inf)')
+    else:
+        raise TypeError(funcName + ': \"thr\" must be a int or a float!')
+    
+    if elast is None:
+        elast = 2.0
+    elif isinstance(elast, int) or isinstance(elast, float):
+        if elast < 1:
+            raise ValueError(funcName + ':valid range of \"elast\" is [1, +inf)')
+    else:
+        raise TypeError(funcName + ': \"elast\" must be a int or a float!')
+    
+    if brighten_thr is None:
+        brighten_thr = thr
+    elif isinstance(brighten_thr, int) or isinstance(brighten_thr, float):
+        if brighten_thr < 0:
+            raise ValueError(funcName + ':valid range of \"brighten_thr\" is [0, +inf)')
+    else:
+        raise TypeError(funcName + ': \"brighten_thr\" must be a int or a float!')
+    
+    if thrc is None:
+        thrc = thr
+    elif isinstance(thrc, int) or isinstance(thrc, float):
+        if thrc < 0:
+            raise ValueError(funcName + ':valid range of \"thrc\" is [0, +inf)')
+    else:
+        raise TypeError(funcName + ': \"thrc\" must be a int or a float!')
+    
+    if force_expr is None:
+        force_expr = True
+    elif not isinstance(force_expr, int):
+        raise TypeError(funcName + ': \"force_expr\" must be a bool!')
+    if ref is not None or sSType != vs.INTEGER:
+        force_expr = True
+    
+    # planes
+    process = [0 for i in range(VSMaxPlaneNum)]
+    
+    if planes is None:
+        process = [1 for i in range(VSMaxPlaneNum)]
+    elif isinstance(planes, int):
+        if planes < 0 or planes >= VSMaxPlaneNum:
+            raise ValueError(funcName + ': valid range of \"planes\" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+        process[planes] = 1
+    elif isinstance(planes, list):
+        for p in planes:
+            if not isinstance(p, int):
+                raise TypeError(funcName + ': \"planes\" must be a (list of) int!')
+            elif p < 0 or p >= VSMaxPlaneNum:
+                raise ValueError(funcName + ': valid range of \"planes\" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+            process[p] = 1
+    else:
+        raise TypeError(funcName + ': \"planes\" must be a (list of) int!')
+    
+    # Process
+    if thr <= 0 and brighten_thr <= 0:
+        if sIsYUV or sIsYCOCG:
+            if thrc <= 0:
+                return src
+        else:
+            return src
+    if thr >= 255 and brighten_thr >= 255:
+        if sIsYUV or sIsYCOCG:
+            if thrc >= 255:
+                return flt
+        else:
+            return flt
+    if thr >= 128 or brighten_thr >= 128:
+        force_expr = True
+    
+    if force_expr: # implementation with std.Expr
+        valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+        limitExprY = _LimitFilterExpr(ref is not None, thr, elast, brighten_thr, valueRange)
+        limitExprC = _LimitFilterExpr(ref is not None, thrc, elast, thrc, valueRange)
+        expr = []
+        for i in range(sNumPlanes):
+            if process[i]:
+                if i > 0 and (sIsYUV or sIsYCOCG):
+                    expr.append(limitExprC)
+                else:
+                    expr.append(limitExprY)
+            else:
+                expr.append("")
+        
+        if ref is None:
+            clip = core.std.Expr([flt, src], expr)
+        else:
+            clip = core.std.Expr([flt, src, ref], expr)
+    else: # implementation with std.MakeDiff, std.Lut and std.MergeDiff
+        diff = core.std.MakeDiff(flt, src, planes=planes)
+        if sIsYUV or sIsYCOCG:
+            if process[0]:
+                diff = _LimitDiffLut(diff, thr, elast, brighten_thr, [0])
+            if process[1] or process[2]:
+                _planes = []
+                if process[1]:
+                    _planes.append(1)
+                if process[2]:
+                    _planes.append(2)
+                diff = _LimitDiffLut(diff, thrc, elast, thrc, [1, 2])
+        else:
+            diff = _LimitDiffLut(diff, thr, elast, brighten_thr, planes)
+        clip = core.std.MakeDiff(flt, diff, planes=planes)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: ShowAverage()
+################################################################################################################################
+## Display unnormalized average of each plane
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to be evaluated
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer
+################################################################################################################################
+## Advanced parameters
+##     alignment {int}: same as the one in text.Text()
+##         default: 7
+################################################################################################################################
+def ShowAverage(clip, alignment=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'ShowAverage'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsYUV = sColorFamily == vs.YUV
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    offset = [0, -0.5, -0.5] if sSType == vs.FLOAT and (sIsYUV or sIsYCOCG) else [0, 0, 0]
+    
+    # Process and output
+    def _ShowAverageFrame(n, f):
+        text = ""
+        if sNumPlanes == 1:
+            average = f.props.PlaneAverage * valueRange + offset[0]
+            text += "PlaneAverage[{plane}]={average}".format(plane=0, average=average)
+        else:
+            for p in range(sNumPlanes):
+                average = f[p].props.PlaneAverage * valueRange + offset[p]
+                text += "PlaneAverage[{plane}]={average}\n".format(plane=p, average=average)
+        return core.text.Text(clip, text, alignment)
+    
+    avg = []
+    for p in range(sNumPlanes):
+        avg.append(core.std.PlaneAverage(clip, p))
+    
+    return core.std.FrameEval(clip, _ShowAverageFrame, prop_src=avg)
+################################################################################################################################
+
+
+
+
+
+################################################################################################################################
+################################################################################################################################
 ################################################################################################################################
 ## Frame property functions below
+################################################################################################################################
+################################################################################################################################
 ################################################################################################################################
 
 
@@ -1176,8 +1591,15 @@ def AssumeCombed(clip, combed=True):
 ################################################################################################################################
 
 
+
+
+
+################################################################################################################################
+################################################################################################################################
 ################################################################################################################################
 ## Helper functions below
+################################################################################################################################
+################################################################################################################################
 ################################################################################################################################
 
 
@@ -1297,4 +1719,278 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     
     # Output
     return matrix
+################################################################################################################################
+
+
+
+
+
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+## Internal used functions below
+################################################################################################################################
+################################################################################################################################
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used function for Min(), Max() and Avg()
+################################################################################################################################
+def _Operator2(clip1, clip2, mode, neutral, funcName):
+    # Set VS core
+    core = vs.get_core()
+    
+    if not isinstance(clip1, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip1\" must be a clip!')
+    if not isinstance(clip2, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip2\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip1.format
+    if sFormat.id != clip2.format.id:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same format!')
+    if clip1.width != clip2.width or clip1.height != clip2.height:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same width and height!')
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    # mode
+    if mode is None:
+        mode = [1 for i in range(VSMaxPlaneNum)]
+    elif isinstance(mode, int):
+        mode = [mode for i in range(VSMaxPlaneNum)]
+    elif isinstance(mode, list):
+        for m in mode:
+            if not isinstance(m, int):
+                raise TypeError(funcName + ': \"mode\" must be a (list of) int!')
+        while len(mode) < VSMaxPlaneNum:
+            mode.append(mode[len(mode) - 1])
+    else:
+        raise TypeError(funcName + ': \"mode\" must be a (list of) int!')
+    
+    # neutral
+    if neutral is None:
+        neutral = 1 << (sbitPS - 1) if sSType == vs.INTEGER else 0
+    elif not (isinstance(neutral, int) or isinstance(neutral, float)):
+        raise TypeError(funcName + ': \"neutral\" must be a int or a float!')
+    
+    # Process and output
+    expr = []
+    for i in range(sNumPlanes):
+        if funcName == 'Min':
+            if mode[i] >= 2:
+                expr.append("y {neutral} - abs x {neutral} - abs < y x ?".format(neutral=neutral))
+            elif mode[i] == 1:
+                expr.append("x y min")
+            else:
+                expr.append("")
+        elif funcName == 'Max':
+            if mode[i] >= 2:
+                expr.append("y {neutral} - abs x {neutral} - abs > y x ?".format(neutral=neutral))
+            elif mode[i] == 1:
+                expr.append("x y max")
+            else:
+                expr.append("")
+        elif funcName == 'Avg':
+            if mode[i] >= 1:
+                expr.append("x y + 2 /")
+            else:
+                expr.append("")
+        else:
+            raise ValueError('_Operator2: Unknown \"funcName\" specified!')
+    
+    return core.std.Expr([clip1, clip2], expr)
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used function for MinFilter() and MaxFilter()
+################################################################################################################################
+def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
+    # Set VS core and function name
+    core = vs.get_core()
+    
+    if not isinstance(src, vs.VideoNode):
+        raise TypeError(funcName + ': \"src\" must be a clip!')
+    if not isinstance(flt1, vs.VideoNode):
+        raise TypeError(funcName + ': \"flt1\" must be a clip!')
+    if not isinstance(flt2, vs.VideoNode):
+        raise TypeError(funcName + ': \"flt2\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = src.format
+    if sFormat.id != flt1.format.id or sFormat.id != flt2.format.id:
+        raise ValueError(funcName + ': \"src\", \"flt1\" and \"flt2\" must be of the same format!')
+    if src.width != flt1.width or src.height != flt1.height or src.width != flt2.width or src.height != flt2.height:
+        raise ValueError(funcName + ': \"src\", \"flt1\" and \"flt2\" must be of the same width and height!')
+    
+    sNumPlanes = sFormat.num_planes
+    
+    # planes
+    process = [0 for i in range(VSMaxPlaneNum)]
+    
+    if planes is None:
+        process = [1 for i in range(VSMaxPlaneNum)]
+    elif isinstance(planes, int):
+        if planes < 0 or planes >= VSMaxPlaneNum:
+            raise ValueError(funcName + ': valid range of \"planes\" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+        process[planes] = 1
+    elif isinstance(planes, list):
+        for p in planes:
+            if not isinstance(p, int):
+                raise TypeError(funcName + ': \"planes\" must be a (list of) int!')
+            elif p < 0 or p >= VSMaxPlaneNum:
+                raise ValueError(funcName + ': valid range of \"planes\" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+            process[p] = 1
+    else:
+        raise TypeError(funcName + ': \"planes\" must be a (list of) int!')
+    
+    # Process and output
+    expr = []
+    for i in range(sNumPlanes):
+        if process[i]:
+            if funcName == 'MinFilter':
+                expr.append("x z - abs x y - abs < z y ?")
+            elif funcName == 'MaxFilter':
+                expr.append("x z - abs x y - abs > z y ?")
+            else:
+                raise ValueError('_Min_Max_Filter: Unknown \"funcName\" specified!')
+        else:
+            expr.append("")
+    
+    return core.std.Expr([src, flt1, flt2], expr)
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used functions for LimitFilter()
+################################################################################################################################
+def _LimitFilterExpr(defref, thr, elast, largen_thr, value_range):
+    flt = " x "
+    src = " y "
+    ref = " z " if defref else src
+    
+    dif = " {flt} {src} - ".format(flt=flt, src=src)
+    dif_ref = " {flt} {ref} - ".format(flt=flt, ref=ref)
+    dif_abs = dif_ref + " abs "
+    
+    thr = thr * value_range / 255
+    largen_thr = largen_thr * value_range / 255
+    
+    if thr <= 0 and largen_thr <= 0:
+        limitExpr = " {src} ".format(src=src)
+    elif thr >= value_range and largen_thr >= value_range:
+        limitExpr = ""
+    elif elast <= 1:
+        limitExpr = " {dif_abs} {thr} <= {flt} {src} ? "
+    else:
+        thr_1 = thr
+        thr_2 = thr * elast
+        thr_slope = 1 / (thr_2 - thr_1)
+        # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
+        limitExpr = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+        limitExpr = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExpr + " ? ? "
+        limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
+        
+        if largen_thr != thr:
+            thr_1 = largen_thr
+            thr_2 = largen_thr * elast
+            thr_slope = 1 / (thr_2 - thr_1)
+            # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
+            limitExprLargen = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+            limitExprLargen = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExprLargen + " ? ? "
+            limitExpr = " {flt} {ref} > " + limitExprLargen + " " + limitExpr + " ? "
+            limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src, ref=ref)
+    
+    return limitExpr
+################################################################################################################################
+def _LimitDiffLut(diff, thr, elast, largen_thr, planes):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = '_LimitDiffLut'
+    
+    if not isinstance(diff, vs.VideoNode):
+        raise TypeError(funcName + ': \"diff\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = diff.format
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    
+    if sSType == vs.INTEGER:
+        neutral = 1 << (sbitPS - 1)
+        value_range = (1 << sbitPS) - 1
+    else:
+        neutral = 0
+        value_range = 1
+        raise ValueError(funcName + ': \"diff\" must be of integer format!')
+    
+    # Process
+    thr = thr * value_range / 255
+    largen_thr = largen_thr * value_range / 255
+    '''
+    # for std.MergeDiff(src, limitedDiff)
+    if thr <= 0 and largen_thr <= 0:
+        def limitLut(x):
+            return neutral
+        return core.std.Lut(diff, planes=planes, function=limitLut)
+    elif thr >= value_range / 2 and largen_thr >= value_range / 2:
+        return diff
+    elif elast <= 1:
+        def limitLut(x):
+            dif = x - neutral
+            dif_abs = abs(dif)
+            thr_1 = largen_thr if dif > 0 else thr
+            return x if dif_abs <= thr_1 else neutral
+        return core.std.Lut(diff, planes=planes, function=limitLut)
+    else:
+        def limitLut(x):
+            dif = x - neutral
+            dif_abs = abs(dif)
+            thr_1 = largen_thr if dif > 0 else thr
+            thr_2 = thr_1 * elast
+            thr_slope = 1 / (thr_2 - thr_1)
+            
+            if dif_abs <= thr_1:
+                return x
+            elif dif_abs >= thr_2:
+                return neutral
+            else:
+                # final = src - dif * ((dif_abs - thr_1) / (thr_2 - thr_1) - 1)
+                return round(dif * (thr_2 - dif_abs) * thr_slope + neutral)
+    '''
+    # for std.MakeDiff(flt, limitedDiff)
+    if thr <= 0 and largen_thr <= 0:
+        return diff
+    elif thr >= value_range / 2 and largen_thr >= value_range / 2:
+        def limitLut(x):
+            return neutral
+        return core.std.Lut(diff, planes=planes, function=limitLut)
+    elif elast <= 1:
+        def limitLut(x):
+            dif = x - neutral
+            dif_abs = abs(dif)
+            thr_1 = largen_thr if dif > 0 else thr
+            return neutral if dif_abs <= thr_1 else x
+        return core.std.Lut(diff, planes=planes, function=limitLut)
+    else:
+        def limitLut(x):
+            dif = x - neutral
+            dif_abs = abs(dif)
+            thr_1 = largen_thr if dif > 0 else thr
+            thr_2 = thr_1 * elast
+            thr_slope = 1 / (thr_2 - thr_1)
+            
+            if dif_abs <= thr_1:
+                return neutral
+            elif dif_abs >= thr_2:
+                return x
+            else:
+                # final = flt - dif * (dif_abs - thr_1) / (thr_2 - thr_1)
+                return round(dif * (dif_abs - thr_1) * thr_slope + neutral)
+        return core.std.Lut(diff, planes=planes, function=limitLut)
 ################################################################################################################################
