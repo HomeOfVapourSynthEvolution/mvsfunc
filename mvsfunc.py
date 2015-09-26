@@ -1412,6 +1412,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
     
     # Modify frame properties
     if ChromaLocation is None:
+        pass
     elif isinstance(ChromaLocation, bool):
         if ChromaLocation is False:
             clip = core.std.SetFrameProp(clip, prop='_ChromaLocation', delete=True)
@@ -1424,6 +1425,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         raise TypeError(funcName + ': \"ChromaLocation\" must be a int or a bool!')
     
     if ColorRange is None:
+        pass
     elif isinstance(ColorRange, bool):
         if ColorRange is False:
             clip = core.std.SetFrameProp(clip, prop='_ColorRange', delete=True)
@@ -1436,6 +1438,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         raise TypeError(funcName + ': \"ColorRange\" must be a int or a bool!')
     
     if Primaries is None:
+        pass
     elif isinstance(Primaries, bool):
         if Primaries is False:
             clip = core.std.SetFrameProp(clip, prop='_Primaries', delete=True)
@@ -1445,6 +1448,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         raise TypeError(funcName + ': \"Primaries\" must be a int or a bool!')
     
     if Matrix is None:
+        pass
     elif isinstance(Matrix, bool):
         if Matrix is False:
             clip = core.std.SetFrameProp(clip, prop='_Matrix', delete=True)
@@ -1454,6 +1458,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         raise TypeError(funcName + ': \"Matrix\" must be a int or a bool!')
     
     if Transfer is None:
+        pass
     elif isinstance(Transfer, bool):
         if Transfer is False:
             clip = core.std.SetFrameProp(clip, prop='_Transfer', delete=True)
@@ -1506,7 +1511,7 @@ def AssumeTFF(clip):
         raise TypeError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
-    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=1)
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=2)
     clip = core.std.SetFrameProp(clip, prop='_Field', delete=True)
     
     # Output
@@ -1529,7 +1534,7 @@ def AssumeBFF(clip):
         raise TypeError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
-    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=2)
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=1)
     clip = core.std.SetFrameProp(clip, prop='_Field', delete=True)
     
     # Output
@@ -1556,7 +1561,7 @@ def AssumeField(clip, top):
         raise TypeError(funcName + ': \"clip\" must be a clip!')
     
     # Modify frame properties
-    clip = core.std.SetFrameProp(clip, prop='_FieldBased', intval=0)
+    clip = core.std.SetFrameProp(clip, prop='_FieldBased', delete=True)
     clip = core.std.SetFrameProp(clip, prop='_Field', intval=1 if top else 0)
     
     # Output
