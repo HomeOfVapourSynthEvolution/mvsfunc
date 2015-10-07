@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2015.09
+## 2015.10
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -33,6 +33,7 @@
 ################################################################################################################################
 ## Helper functions:
 ##     GetMatrix
+##     zDepth
 ################################################################################################################################
 
 
@@ -231,7 +232,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     
     # Apply conversion
     if useZ:
-        clip = core.z.Depth(clip, dither=dither, sample=dSType, depth=dbitPS, fullrange_in=fulls, fullrange_out=fulld)
+        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
     
@@ -1794,6 +1795,43 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     
     # Output
     return matrix
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: zDepth()
+################################################################################################################################
+## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg
+################################################################################################################################
+def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'zDepth'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    # Get properties of output clip
+    if sample is None:
+        sample = sFormat.sample_type
+    elif not isinstance(sample, int):
+        raise TypeError(funcName + ': \"sample\" must be a int!')
+    
+    if depth is None:
+        depth = sFormat.bits_per_sample
+    elif not isinstance(depth, int):
+        raise TypeError(funcName + ': \"depth\" must be a int!')
+    
+    format = core.register_format(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
+    
+    # Process
+    try:
+        return core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
+    except AttributeError:
+        return core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
 ################################################################################################################################
 
 
