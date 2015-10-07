@@ -21,6 +21,7 @@
 ##     MaxFilter
 ##     LimitFilter
 ##     ShowAverage
+##     FilterCombed
 ################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
@@ -1381,6 +1382,62 @@ def ShowAverage(clip, alignment=None):
 ################################################################################################################################
 
 
+################################################################################################################################
+## Utility function: FilterCombed()
+################################################################################################################################
+## Take the frames from clip "flt" that is marked as combed and the ones from clip "src" that is not.
+## The frame property '_Combed' from clip "props" is evaluated to determine whether it's combed.
+################################################################################################################################
+## Basic parameters
+##     src {clip}: the source clip
+##         can be of any constant format
+##     flt {clip}: the filtered clip (de-interlaced)
+##         must be of the same format and dimension as "src"
+##     props {clip} (optional): the clip from which the frame property is evaluated
+##         can be of any format, should have the same number of frames as "src"
+##         default: None (use "src")
+################################################################################################################################
+def FilterCombed(src, flt, props=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'FilterCombed'
+    
+    if not isinstance(src, vs.VideoNode):
+        raise TypeError(funcName + ': \"src\" must be a clip!')
+    if not isinstance(flt, vs.VideoNode):
+        raise TypeError(funcName + ': \"flt\" must be a clip!')
+    if props is not None and not isinstance(props, vs.VideoNode):
+        raise TypeError(funcName + ': \"props\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = src.format
+    if sFormat.id != flt.format.id:
+        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same format!')
+    if src.width != flt.width or src.height != flt.height:
+        raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same width and height!')
+    
+    if props is None:
+        props = src
+    else:
+        if sFormat.id != props.format.id:
+            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same format!')
+        if src.width != props.width or src.height != props.height:
+            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same width and height!')
+    
+    # FrameEval function
+    def _FilterCombedFrame(n, f):
+        try:
+            if f.props._Combed:
+                return flt
+        except:
+            pass
+        return src
+    
+    # Process
+    return core.std.FrameEval(src, _FilterCombedFrame, props)
+################################################################################################################################
+
+
 
 
 
@@ -1563,6 +1620,9 @@ def AssumeField(clip, top):
     
     if not isinstance(clip, vs.VideoNode):
         raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    if not isinstance(top, int):
+        raise TypeError(funcName + ': \"top\" must be a bool!')
     
     # Modify frame properties
     clip = core.std.SetFrameProp(clip, prop='_FieldBased', delete=True)
