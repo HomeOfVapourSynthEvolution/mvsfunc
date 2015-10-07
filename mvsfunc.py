@@ -282,7 +282,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Get string format parameter "matrix"
     if matrix is not None:
         matrix_id = GetMatrix(input, matrix, True, True)
-        clip = SetColorSpace(clip, False if matrix_id > 10 else matrix_id)
+        clip = SetColorSpace(clip, Matrix=False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, True)
     
     # Get properties of input clip
@@ -452,7 +452,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Get string format parameter "matrix"
     if matrix is not None:
         matrix_id = GetMatrix(input, matrix, False, True)
-        clip = SetColorSpace(clip, False if matrix_id > 10 else matrix_id)
+        clip = SetColorSpace(clip, Matrix=False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, False)
     
     # Get properties of input clip
