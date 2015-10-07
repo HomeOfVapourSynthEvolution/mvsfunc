@@ -72,8 +72,10 @@ VSMaxPlaneNum = 3
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     fulls {bool}: define if input clip is of full range
-##         default: assume True for RGB/YCgCo input, assume False for Gray/YUV input
+##         the frame property '_ColorRange' will be overwritten if this argument is not None
+##         default: None, assume True for RGB/YCgCo input, assume False for Gray/YUV input
 ##     fulld {bool}: define if output clip is of full range
+##         the frame property '_ColorRange' will be overwritten by it
 ##         default is the same as "fulls"
 ################################################################################################################################
 ## Advanced parameters
@@ -251,7 +253,8 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
 ##         decides the conversion coefficients from YUV to RGB
 ##         check GetMatrix() for available values
-##         default: guessed according to the color family and size of input clip
+##         the frame property '_Matrix' will be overwritten if this argument is not None
+##         default: None, guessed according to the color family and size of input clip
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
 ##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
@@ -410,7 +413,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     matrix {int|str}: color matrix of output clip
 ##         decides the conversion coefficients from RGB to YUV
 ##         check GetMatrix() for available values
-##         default: guessed according to the color family and size of input clip
+##         the frame property '_Matrix' will be overwritten if this argument is not None
+##         default: None, guessed according to the color family and size of input clip
 ##     css {str}: chroma sub-sampling of output clip, similar to the one in fmtc.resample
 ##         If two number is defined, then the first is horizontal sub-sampling and the second is vertical sub-sampling.
 ##         For example, "11" is 4:4:4, "21" is 4:2:2, "22" is 4:2:0.
