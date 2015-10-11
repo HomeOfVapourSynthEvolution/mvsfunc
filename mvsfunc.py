@@ -261,7 +261,6 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
 ##         decides the conversion coefficients from YUV to RGB
 ##         check GetMatrix() for available values
-##         the frame property '_Matrix' will be overwritten if this argument is not None
 ##         default: None, guessed according to the color family and size of input clip
 ##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
 ##         default is the same as that of the input clip
@@ -291,9 +290,6 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise TypeError(funcName + ': \"input\" must be a clip!')
     
     # Get string format parameter "matrix"
-    if matrix is not None:
-        matrix_id = GetMatrix(input, matrix, True, True)
-        clip = SetColorSpace(clip, Matrix=False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, True)
     
     # Get properties of input clip
@@ -421,7 +417,6 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     matrix {int|str}: color matrix of output clip
 ##         decides the conversion coefficients from RGB to YUV
 ##         check GetMatrix() for available values
-##         the frame property '_Matrix' will be overwritten if this argument is not None
 ##         default: None, guessed according to the color family and size of input clip
 ##     css {str}: chroma sub-sampling of output clip, similar to the one in fmtc.resample
 ##         If two number is defined, then the first is horizontal sub-sampling and the second is vertical sub-sampling.
@@ -462,9 +457,6 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise TypeError(funcName + ': \"input\" must be a clip!')
     
     # Get string format parameter "matrix"
-    if matrix is not None:
-        matrix_id = GetMatrix(input, matrix, False, True)
-        clip = SetColorSpace(clip, Matrix=False if matrix_id > 10 else matrix_id)
     matrix = GetMatrix(input, matrix, False)
     
     # Get properties of input clip
@@ -667,7 +659,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     psample {int}: internal processed precision
 ##         - 0: 16-bit integer, less accuracy, less memory consumption
 ##         - 1: 32-bit float, more accuracy, more memory consumption
-##         default: 0
+##         default: 0 for integer input, 1 for float input
 ################################################################################################################################
 ## Parameters of input properties
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
@@ -761,7 +753,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Get properties of internal processed clip
     if psample is None:
-        psample = vs.INTEGER
+        psample = sSType
     elif not isinstance(psample, int):
         raise TypeError(funcName + ': \"psample\" must be an int!')
     elif psample != vs.INTEGER and psample != vs.FLOAT:
