@@ -20,8 +20,11 @@
 ##     MinFilter
 ##     MaxFilter
 ##     LimitFilter
+##     PlaneStatistics
+##     PlaneCompare
 ##     ShowAverage
 ##     FilterCombed
+##     PointPower
 ################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
@@ -38,6 +41,8 @@
 
 
 import vapoursynth as vs
+import functools
+import math
 
 
 ################################################################################################################################
@@ -137,7 +142,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
-        raise TypeError(funcName + ': \"depth\" must be a int!')
+        raise TypeError(funcName + ': \"depth\" must be an int!')
     else:
         dbitPS = depth
     if sample is None:
@@ -146,7 +151,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         else:
             dSType = vs.FLOAT if dbitPS >= 32 else 0
     elif not isinstance(sample, int):
-        raise TypeError(funcName + ': \"sample\" must be a int!')
+        raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
@@ -177,7 +182,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     
     # Dithering type
     if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
-            raise TypeError(funcName + ': \"ampn\" must be a float or int!')
+            raise TypeError(funcName + ': \"ampn\" must be a float or an int!')
     
     if dither is None:
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
@@ -185,7 +190,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         else:
             dither = "error_diffusion" if useZ else 3
     elif not isinstance(dither, int) and not isinstance(dither, str):
-        raise TypeError(funcName + ': \"dither\" must be a int or str!')
+        raise TypeError(funcName + ': \"dither\" must be an int or a str!')
     else:
         if isinstance(dither, str):
             dither = dither.lower()
@@ -224,7 +229,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         if ampo is None:
             ampo = 1.5 if dither == 0 else 1
         elif not isinstance(ampo, float) and not isinstance(ampo, int):
-            raise TypeError(funcName + ': \"ampo\" must be a float or int!')
+            raise TypeError(funcName + ': \"ampo\" must be a float or an int!')
     
     # Skip processing if not needed
     if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls):
@@ -323,7 +328,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
-        raise TypeError(funcName + ': \"depth\" must be a int!')
+        raise TypeError(funcName + ': \"depth\" must be an int!')
     else:
         dbitPS = depth
     if sample is None:
@@ -332,7 +337,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             dSType = vs.FLOAT if dbitPS >= 32 else 0
     elif not isinstance(sample, int):
-        raise TypeError(funcName + ': \"sample\" must be a int!')
+        raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
@@ -497,7 +502,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
-        raise TypeError(funcName + ': \"depth\" must be a int!')
+        raise TypeError(funcName + ': \"depth\" must be an int!')
     else:
         dbitPS = depth
     if sample is None:
@@ -506,7 +511,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             dSType = vs.FLOAT if dbitPS >= 32 else 0
     elif not isinstance(sample, int):
-        raise TypeError(funcName + ': \"sample\" must be a int!')
+        raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
@@ -757,7 +762,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if psample is None:
         psample = vs.INTEGER
     elif not isinstance(psample, int):
-        raise TypeError(funcName + ': \"psample\" must be a int!')
+        raise TypeError(funcName + ': \"psample\" must be an int!')
     elif psample != vs.INTEGER and psample != vs.FLOAT:
         raise ValueError(funcName + ': \"psample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     pbitPS = 16 if psample == vs.INTEGER else 32
@@ -802,20 +807,20 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             while len(sigma) < 3:
                 sigma.append(sigma[len(sigma) - 1])
         else:
-            raise TypeError(funcName + ': sigma must be a float[] or int[]!')
+            raise TypeError(funcName + ': sigma must be a float[] or an int[]!')
     if sIsGRAY:
         sigma = [sigma[0],0,0]
     
     if radius1 is None:
         radius1 = 0
     elif not isinstance(radius1, int):
-        raise TypeError(funcName + ': \"radius1\" must be a int!')
+        raise TypeError(funcName + ': \"radius1\" must be an int!')
     elif radius1 < 0:
         raise ValueError(funcName + ': valid range of \"radius1\" is [0, +inf)!')
     if radius2 is None:
         radius2 = radius1
     elif not isinstance(radius2, int):
-        raise TypeError(funcName + ': \"radius2\" must be a int!')
+        raise TypeError(funcName + ': \"radius2\" must be an int!')
     elif radius2 < 0:
         raise ValueError(funcName + ': valid range of \"radius2\" is [0, +inf)!')
     
@@ -831,14 +836,14 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if refine is None:
         refine = 1
     elif not isinstance(refine, int):
-        raise TypeError(funcName + ': \"refine\" must be a int!')
+        raise TypeError(funcName + ': \"refine\" must be an int!')
     elif refine < 0:
         raise ValueError(funcName + ': valid range of \"refine\" is [0, +inf)!')
     
     if output is None:
         output = 0
     elif not isinstance(output, int):
-        raise TypeError(funcName + ': \"output\" must be a int!')
+        raise TypeError(funcName + ': \"output\" must be an int!')
     elif output < 0 or output > 2:
         raise ValueError(funcName + ': valid values of \"output\" are 0, 1 and 2!')
     
@@ -865,7 +870,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         else:
             dbitPS = pbitPS
     elif not isinstance(depth, int):
-        raise TypeError(funcName + ': \"depth\" must be a int!')
+        raise TypeError(funcName + ': \"depth\" must be an int!')
     else:
         dbitPS = depth
     if sample is None:
@@ -877,7 +882,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         else:
             dSType = vs.FLOAT if dbitPS >= 32 else 0
     elif not isinstance(sample, int):
-        raise TypeError(funcName + ': \"sample\" must be a int!')
+        raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
@@ -1221,7 +1226,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         if thr < 0:
             raise ValueError(funcName + ':valid range of \"thr\" is [0, +inf)')
     else:
-        raise TypeError(funcName + ': \"thr\" must be a int or a float!')
+        raise TypeError(funcName + ': \"thr\" must be an int or a float!')
     
     if elast is None:
         elast = 2.0
@@ -1229,7 +1234,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         if elast < 1:
             raise ValueError(funcName + ':valid range of \"elast\" is [1, +inf)')
     else:
-        raise TypeError(funcName + ': \"elast\" must be a int or a float!')
+        raise TypeError(funcName + ': \"elast\" must be an int or a float!')
     
     if brighten_thr is None:
         brighten_thr = thr
@@ -1237,7 +1242,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         if brighten_thr < 0:
             raise ValueError(funcName + ':valid range of \"brighten_thr\" is [0, +inf)')
     else:
-        raise TypeError(funcName + ': \"brighten_thr\" must be a int or a float!')
+        raise TypeError(funcName + ': \"brighten_thr\" must be an int or a float!')
     
     if thrc is None:
         thrc = thr
@@ -1245,7 +1250,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         if thrc < 0:
             raise ValueError(funcName + ':valid range of \"thrc\" is [0, +inf)')
     else:
-        raise TypeError(funcName + ': \"thrc\" must be a int or a float!')
+        raise TypeError(funcName + ': \"thrc\" must be an int or a float!')
     
     if force_expr is None:
         force_expr = True
@@ -1329,13 +1334,228 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
 
 
 ################################################################################################################################
+## Utility function: PlaneStatistics()
+################################################################################################################################
+## Calculate statistics of specific plane and store them as frame properties
+## All the values are normalized (float that the peak-to-peak value is 1)
+## Supported statistics:
+##     mean: stored as frame property 'PlaneMean'
+##     mean absolute deviation: stored as frame property 'PlaneMAD'
+##     variance: stored as frame property 'PlaneVar'
+##     standard deviation: stored as frame property 'PlaneSTD'
+##     root mean square: stored as frame property 'PlaneRMS'
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to be evaluated
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##     plane {int}: specify which plane to evaluate
+##         default: 0
+##     mean {bool}: whether to calculate mean
+##         default: True
+##     mad {bool}: whether to calculate mean absolute deviation
+##         default: True
+##     var {bool}: whether to calculate variance
+##         default: True
+##     std {bool}: whether to calculate standard deviation
+##         default: True
+##     rms {bool}: whether to calculate root mean square
+##         default: True
+################################################################################################################################
+def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, rms=True):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PlaneStatistics'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+    
+    floatFormat = core.register_format(sFormat.color_family, vs.FLOAT, 32, sFormat.subsampling_w, sFormat.subsampling_h)
+    floatBlk = core.std.BlankClip(clip, format=floatFormat.id)
+    
+    # Plane Mean
+    clip = core.std.PlaneAverage(clip, plane, "PlaneMean")
+    
+    # Plane MAD (mean absolute deviation)
+    if mad:
+        '''# always float precision
+        def _PlaneADFrame(n, f, clip):
+            mean = f.props.PlaneMean
+            expr = ["" for i in range(sNumPlanes)]
+            expr[plane] = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
+            return core.std.Expr(clip, expr, format=floatFormat.id)
+        ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=clip), clip)'''
+        def _PlaneADFrame(n, f, clip):
+            mean = f.props.PlaneMean * valueRange
+            expr = ["" for i in range(sNumPlanes)]
+            expr[plane] = "x {mean} - abs".format(mean=mean)
+            return core.std.Expr(clip, expr)
+        ADclip = core.std.FrameEval(clip, functools.partial(_PlaneADFrame, clip=clip), clip)
+        
+        ADclip = core.std.PlaneAverage(ADclip, plane, "PlaneMAD")
+        def _PlaneMADTransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneMAD = f[1].props.PlaneMAD
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, ADclip], selector=_PlaneMADTransfer)
+    
+    # Plane Var (variance) and STD (standard deviation)
+    if var or std:
+        def _PlaneSDFrame(n, f, clip):
+            mean = f.props.PlaneMean * valueRange
+            expr = ["" for i in range(sNumPlanes)]
+            expr[plane] = "x {mean} - dup *".format(gain=1, mean=mean)
+            return core.std.Expr(clip, expr, format=floatFormat.id)
+        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip), clip)
+        
+        SDclip = core.std.PlaneAverage(SDclip, plane, "PlaneVar")
+        def _PlaneVarSTDTransfer(n, f):
+            fout = f[0].copy()
+            if var:
+                fout.props.PlaneVar = f[1].props.PlaneVar / (valueRange * valueRange)
+            if std:
+                fout.props.PlaneSTD = math.sqrt(f[1].props.PlaneVar) / valueRange
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, SDclip], selector=_PlaneVarSTDTransfer)
+    
+    # Plane RMS (standard deviation)
+    if rms:
+        expr = ["" for i in range(sNumPlanes)]
+        expr[plane] = "x x *"
+        squareClip = core.std.Expr(clip, expr, format=floatFormat.id)
+        
+        squareClip = core.std.PlaneAverage(squareClip, plane, "PlaneMS")
+        def _PlaneRMSTransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneRMS = math.sqrt(f[1].props.PlaneMS) / valueRange
+            return fout
+        clip = core.std.ModifyFrame(clip, [clip, squareClip], selector=_PlaneRMSTransfer)
+    
+    # Delete frame property "PlaneMean" if not needed
+    if not mean:
+        clip = core.std.SetFrameProp(clip, "PlaneMean", delete=True)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: PlaneCompare()
+################################################################################################################################
+## Compare specific plane of 2 clips and store the statistical results as frame properties
+## All the values are normalized (float that the peak-to-peak value is 1) except PSNR
+## Supported statistics:
+##     mean absolute difference: stored as frame property 'PlaneMD'
+##     mean squared error: stored as frame property 'PlaneMSE'
+##     peak signal-to-noise ratio: stored as frame property 'PlanePSNR', maximum value is 100.0 (identical)
+################################################################################################################################
+## Basic parameters
+##     clip1 {clip}: the first clip to be evaluated, will be copied to output
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##     clip2 {clip}: the second clip, to be compared with the first one
+##         must be of the same format and dimension as the "clip1"
+##     plane {int}: specify which plane to evaluate
+##         default: 0
+##     md {bool}: whether to calculate mean absolute difference
+##         default: True
+##     mse {bool}: whether to calculate mean squared error
+##         default: True
+##     psnr {bool}: whether to calculate peak signal-to-noise ratio
+##         default: True
+################################################################################################################################
+def PlaneCompare(clip1, clip2, plane=None, md=True, mse=True, psnr=True):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PlaneCompare'
+    
+    if not isinstance(clip1, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip1\" must be a clip!')
+    if not isinstance(clip2, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip2\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip1.format
+    if sFormat.id != clip2.format.id:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same format!')
+    if clip1.width != clip2.width or clip1.height != clip2.height:
+        raise ValueError(funcName + ': \"clip1\" and \"clip2\" must be of the same width and height!')
+    
+    sSType = sFormat.sample_type
+    sbitPS = sFormat.bits_per_sample
+    sNumPlanes = sFormat.num_planes
+    
+    valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+    
+    floatFormat = core.register_format(sFormat.color_family, vs.FLOAT, 32, sFormat.subsampling_w, sFormat.subsampling_h)
+    #floatBlk = core.std.BlankClip(clip1, format=floatFormat.id)
+    
+    # Plane MD (mean absolute difference)
+    if md:
+        expr = ["" for i in range(sNumPlanes)]
+        expr[plane] = "x y - abs"
+        ADclip = core.std.Expr([clip1, clip2], expr, format=floatFormat.id)
+        
+        ADclip = core.std.PlaneAverage(ADclip, plane, "PlaneMD")
+        def _PlaneMDTransfer(n, f):
+            fout = f[0].copy()
+            fout.props.PlaneMD = f[1].props.PlaneMD / valueRange
+            return fout
+        clip1 = core.std.ModifyFrame(clip1, [clip1, ADclip], selector=_PlaneMDTransfer)
+    
+    # Plane MSE (mean squared error) and PSNR (peak signal-to-noise ratio)
+    if mse or psnr:
+        expr = ["" for i in range(sNumPlanes)]
+        expr[plane] = "x y - dup *"
+        SDclip = core.std.Expr([clip1, clip2], expr, format=floatFormat.id)
+        
+        SDclip = core.std.PlaneAverage(SDclip, plane, "PlaneMSE")
+        def _PlaneMSEnPSNRTransfer(n, f):
+            fout = f[0].copy()
+            if mse:
+                fout.props.PlaneMSE = f[1].props.PlaneMSE / (valueRange * valueRange)
+            if psnr:
+                fout.props.PlanePSNR = min(10 * math.log(valueRange * valueRange / f[1].props.PlaneMSE, 10), 99.99999999999999) if f[1].props.PlaneMSE > 0 else 100.0
+            return fout
+        clip1 = core.std.ModifyFrame(clip1, [clip1, SDclip], selector=_PlaneMSEnPSNRTransfer)
+    
+    # Output
+    return clip1
+################################################################################################################################
+
+
+################################################################################################################################
 ## Utility function: ShowAverage()
 ################################################################################################################################
 ## Display unnormalized average of each plane
 ################################################################################################################################
 ## Basic parameters
 ##     clip {clip}: clip to be evaluated
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer
+##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
 ################################################################################################################################
 ## Advanced parameters
 ##     alignment {int}: same as the one in text.Text()
@@ -1439,6 +1659,60 @@ def FilterCombed(src, flt, props=None):
 ################################################################################################################################
 
 
+################################################################################################################################
+## Utility function: PointPower()
+################################################################################################################################
+## Up-scaling by a power of 2 with nearest-neighborhood interpolation (point resize)
+## Internally it involves std.Transpose, std.Interleave and std.DoubleWeave+std.SelectEvery for the scaling
+## It will be faster than point-resizers for pure vertical scaling when the scaling ratio is not too large, especially for 8-bit input
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to be scaled
+##         can be of any format
+##     vpow {float}: vertical scaling ratio is 2^vpow
+##         default: 1
+##     hpow {float}: horizontal scaling ratio is 2^hpow
+##         default: 0
+################################################################################################################################
+def PointPower(clip, vpow=None, hpow=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PointPower'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Parameters
+    if vpow is None:
+        vpow = 1
+    elif not isinstance(vpow, int):
+        raise TypeError(funcName + ': \"vpow\" must be an int!')
+    elif vpow < 0:
+        raise ValueError(funcName + ': valid range of \"vpow\" is [0, +inf)!')
+    
+    if hpow is None:
+        hpow = 0
+    elif not isinstance(hpow, int):
+        raise TypeError(funcName + ': \"hpow\" must be an int!')
+    elif hpow < 0:
+        raise ValueError(funcName + ': valid range of \"hpow\" is [0, +inf)!')
+    
+    # Process
+    if hpow > 0:
+        clip = core.std.Transpose(clip)
+        for i in range(hpow):
+            clip = core.std.Interleave([clip, clip]).std.DoubleWeave(True).std.SelectEvery(2, 0)
+        clip = core.std.Transpose(clip)
+    
+    if vpow > 0:
+        for i in range(vpow):
+            clip = core.std.Interleave([clip, clip]).std.DoubleWeave(True).std.SelectEvery(2, 0)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
 
 
 
@@ -1484,7 +1758,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         else:
             raise ValueError(funcName + ': valid range of \"ChromaLocation\" is [0, 5]!')
     else:
-        raise TypeError(funcName + ': \"ChromaLocation\" must be a int or a bool!')
+        raise TypeError(funcName + ': \"ChromaLocation\" must be an int or a bool!')
     
     if ColorRange is None:
         pass
@@ -1497,7 +1771,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
         else:
             raise ValueError(funcName + ': valid range of \"ColorRange\" is [0, 1]!')
     else:
-        raise TypeError(funcName + ': \"ColorRange\" must be a int or a bool!')
+        raise TypeError(funcName + ': \"ColorRange\" must be an int or a bool!')
     
     if Primaries is None:
         pass
@@ -1507,7 +1781,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
     elif isinstance(Primaries, int):
         clip = core.std.SetFrameProp(clip, prop='_Primaries', intval=Primaries)
     else:
-        raise TypeError(funcName + ': \"Primaries\" must be a int or a bool!')
+        raise TypeError(funcName + ': \"Primaries\" must be an int or a bool!')
     
     if Matrix is None:
         pass
@@ -1517,7 +1791,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
     elif isinstance(Matrix, int):
         clip = core.std.SetFrameProp(clip, prop='_Matrix', intval=Matrix)
     else:
-        raise TypeError(funcName + ': \"Matrix\" must be a int or a bool!')
+        raise TypeError(funcName + ': \"Matrix\" must be an int or a bool!')
     
     if Transfer is None:
         pass
@@ -1527,7 +1801,7 @@ def SetColorSpace(clip, ChromaLocation=None, ColorRange=None, Primaries=None, Ma
     elif isinstance(Transfer, int):
         clip = core.std.SetFrameProp(clip, prop='_Transfer', intval=Transfer)
     else:
-        raise TypeError(funcName + ': \"Transfer\" must be a int or a bool!')
+        raise TypeError(funcName + ': \"Transfer\" must be an int or a bool!')
     
     # Output
     return clip
@@ -1755,7 +2029,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     if matrix is None:
         matrix = "Unspecified"
     elif not isinstance(matrix, int) and not isinstance(matrix, str):
-        raise TypeError(funcName + ': \"matrix\" must be a int or str!')
+        raise TypeError(funcName + ': \"matrix\" must be an int or a str!')
     else:
         if isinstance(matrix, str):
             matrix = matrix.lower()
@@ -1818,12 +2092,12 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     if sample is None:
         sample = sFormat.sample_type
     elif not isinstance(sample, int):
-        raise TypeError(funcName + ': \"sample\" must be a int!')
+        raise TypeError(funcName + ': \"sample\" must be an int!')
     
     if depth is None:
         depth = sFormat.bits_per_sample
     elif not isinstance(depth, int):
-        raise TypeError(funcName + ': \"depth\" must be a int!')
+        raise TypeError(funcName + ': \"depth\" must be an int!')
     
     format = core.register_format(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
     
@@ -1888,7 +2162,7 @@ def _Operator2(clip1, clip2, mode, neutral, funcName):
     if neutral is None:
         neutral = 1 << (sbitPS - 1) if sSType == vs.INTEGER else 0
     elif not (isinstance(neutral, int) or isinstance(neutral, float)):
-        raise TypeError(funcName + ': \"neutral\" must be a int or a float!')
+        raise TypeError(funcName + ': \"neutral\" must be an int or a float!')
     
     # Process and output
     expr = []
