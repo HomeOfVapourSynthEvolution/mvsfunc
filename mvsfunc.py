@@ -590,7 +590,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         widthc = input.width // dHSubS
-        heightc = input.width // dVSubS
+        heightc = input.height // dVSubS
         UV = core.std.BlankClip(clip, width=widthc, height=heightc, \
         color=0 if dSType == vs.FLOAT else 1 << (dbitPS - 1))
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
