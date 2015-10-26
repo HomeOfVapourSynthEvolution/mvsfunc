@@ -150,7 +150,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         if depth is None:
             dSType = sSType
         else:
-            dSType = vs.FLOAT if dbitPS >= 32 else 0
+            dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
@@ -332,7 +332,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if depth is None:
             dSType = sSType
         else:
-            dSType = vs.FLOAT if dbitPS >= 32 else 0
+            dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
@@ -502,7 +502,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if depth is None:
             dSType = sSType
         else:
-            dSType = vs.FLOAT if dbitPS >= 32 else 0
+            dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
@@ -592,7 +592,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         widthc = input.width // dHSubS
         heightc = input.height // dVSubS
         UV = core.std.BlankClip(clip, width=widthc, height=heightc, \
-        color=0 if dSType == vs.FLOAT else 1 << (dbitPS - 1))
+        color=1 << (dbitPS - 1) if dSType == vs.INTEGER else 0)
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
     else:
         # Apply depth conversion for processed clip
@@ -873,7 +873,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             else:
                 dSType = pSType
         else:
-            dSType = vs.FLOAT if dbitPS >= 32 else 0
+            dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
