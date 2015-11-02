@@ -1458,7 +1458,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
 ## Compare specific plane of 2 clips and store the statistical results as frame properties
 ## All the values are normalized (float of which the peak-to-peak value is 1) except PSNR
 ## Supported statistics:
-##     mean absolute difference: stored as frame property 'PlaneMD'
+##     mean absolute error: stored as frame property 'PlaneMAE'
 ##     mean squared error: stored as frame property 'PlaneMSE'
 ##     peak signal-to-noise ratio: stored as frame property 'PlanePSNR', maximum value is 100.0 (when 2 planes are identical)
 ##     covariance: stored as frame property 'PlaneCov'
@@ -1471,7 +1471,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
 ##         must be of the same format and dimension as the "clip1"
 ##     plane {int}: specify which plane to evaluate
 ##         default: 0
-##     md {bool}: whether to calculate mean absolute difference
+##     mae {bool}: whether to calculate mean absolute error
 ##         default: True
 ##     mse {bool}: whether to calculate mean squared error
 ##         default: True
@@ -1482,7 +1482,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
 ##     corr {bool}: whether to calculate correlation
 ##         default: True
 ################################################################################################################################
-def PlaneCompare(clip1, clip2, plane=None, md=True, mse=True, psnr=True, cov=True, corr=True):
+def PlaneCompare(clip1, clip2, plane=None, mae=True, mse=True, psnr=True, cov=True, corr=True):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'PlaneCompare'
@@ -1519,17 +1519,17 @@ def PlaneCompare(clip1, clip2, plane=None, md=True, mse=True, psnr=True, cov=Tru
     clip1Plane = GetPlane(clip1, plane)
     clip2Plane = GetPlane(clip2, plane)
     
-    # Plane MD (mean absolute difference)
-    if md:
+    # Plane MAE (mean absolute error)
+    if mae:
         expr = "x y - abs"
         ADclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
-        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMD")
+        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAE")
         
-        def _PlaneMDTransfer(n, f):
+        def _PlaneMAETransfer(n, f):
             fout = f[0].copy()
-            fout.props.PlaneMD = f[1].props.PlaneMD / valueRange
+            fout.props.PlaneMAE = f[1].props.PlaneMAE / valueRange
             return fout
-        clip1 = core.std.ModifyFrame(clip1, [clip1, ADclip], selector=_PlaneMDTransfer)
+        clip1 = core.std.ModifyFrame(clip1, [clip1, ADclip], selector=_PlaneMAETransfer)
     
     # Plane MSE (mean squared error) and PSNR (peak signal-to-noise ratio)
     if mse or psnr:
