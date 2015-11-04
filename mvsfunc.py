@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2015.10
+## 2015.11
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -1415,7 +1415,7 @@ def FilterCombed(src, flt, props=None):
 ##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
 ################################################################################################################################
 def Min(clip1, clip2, mode=None, neutral=None):
-    return _Operator2(clip1, clip2, mode, neutral, 'Min')
+    return __operator2__(clip1, clip2, mode, neutral, 'Min')
 ################################################################################################################################
 
 
@@ -1441,7 +1441,7 @@ def Min(clip1, clip2, mode=None, neutral=None):
 ##         default: 1 << (bits_per_sample - 1) for integer input, 0 for float input
 ################################################################################################################################
 def Max(clip1, clip2, mode=None, neutral=None):
-    return _Operator2(clip1, clip2, mode, neutral, 'Max')
+    return __operator2__(clip1, clip2, mode, neutral, 'Max')
 ################################################################################################################################
 
 
@@ -1461,7 +1461,7 @@ def Max(clip1, clip2, mode=None, neutral=None):
 ##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
 ################################################################################################################################
 def Avg(clip1, clip2, mode=None):
-    return _Operator2(clip1, clip2, mode, None, 'Avg')
+    return __operator2__(clip1, clip2, mode, None, 'Avg')
 ################################################################################################################################
 
 
@@ -1482,7 +1482,7 @@ def Avg(clip1, clip2, mode=None):
 ##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
 ################################################################################################################################
 def MinFilter(src, flt1, flt2, planes=None):
-    return _Min_Max_Filter(src, flt1, flt2, planes, 'MinFilter')
+    return __min_max_filter__(src, flt1, flt2, planes, 'MinFilter')
 ################################################################################################################################
 
 
@@ -1503,7 +1503,7 @@ def MinFilter(src, flt1, flt2, planes=None):
 ##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
 ################################################################################################################################
 def MaxFilter(src, flt1, flt2, planes=None):
-    return _Min_Max_Filter(src, flt1, flt2, planes, 'MaxFilter')
+    return __min_max_filter__(src, flt1, flt2, planes, 'MaxFilter')
 ################################################################################################################################
 
 
@@ -1675,8 +1675,8 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
     
     if force_expr: # implementation with std.Expr
         valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-        limitExprY = _LimitFilterExpr(ref is not None, thr, elast, brighten_thr, valueRange)
-        limitExprC = _LimitFilterExpr(ref is not None, thrc, elast, thrc, valueRange)
+        limitExprY = __limit_filter_expr__(ref is not None, thr, elast, brighten_thr, valueRange)
+        limitExprC = __limit_filter_expr__(ref is not None, thrc, elast, thrc, valueRange)
         expr = []
         for i in range(sNumPlanes):
             if process[i]:
@@ -1695,16 +1695,16 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         diff = core.std.MakeDiff(flt, src, planes=planes)
         if sIsYUV or sIsYCOCG:
             if process[0]:
-                diff = _LimitDiffLut(diff, thr, elast, brighten_thr, [0])
+                diff = __limit_diff_lut__(diff, thr, elast, brighten_thr, [0])
             if process[1] or process[2]:
                 _planes = []
                 if process[1]:
                     _planes.append(1)
                 if process[2]:
                     _planes.append(2)
-                diff = _LimitDiffLut(diff, thrc, elast, thrc, [1, 2])
+                diff = __limit_diff_lut__(diff, thrc, elast, thrc, [1, 2])
         else:
-            diff = _LimitDiffLut(diff, thr, elast, brighten_thr, planes)
+            diff = __limit_diff_lut__(diff, thr, elast, brighten_thr, planes)
         clip = core.std.MakeDiff(flt, diff, planes=planes)
     
     # Output
@@ -2213,7 +2213,7 @@ def GetPlane(clip, plane=None):
 ################################################################################################################################
 ## Internal used function for Min(), Max() and Avg()
 ################################################################################################################################
-def _Operator2(clip1, clip2, mode, neutral, funcName):
+def __operator2__(clip1, clip2, mode, neutral, funcName):
     # Set VS core
     core = vs.get_core()
     
@@ -2276,7 +2276,7 @@ def _Operator2(clip1, clip2, mode, neutral, funcName):
             else:
                 expr.append("")
         else:
-            raise ValueError('_Operator2: Unknown \"funcName\" specified!')
+            raise ValueError('__operator2__: Unknown \"funcName\" specified!')
     
     return core.std.Expr([clip1, clip2], expr)
 ################################################################################################################################
@@ -2285,7 +2285,7 @@ def _Operator2(clip1, clip2, mode, neutral, funcName):
 ################################################################################################################################
 ## Internal used function for MinFilter() and MaxFilter()
 ################################################################################################################################
-def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
+def __min_max_filter__(src, flt1, flt2, planes, funcName):
     # Set VS core and function name
     core = vs.get_core()
     
@@ -2333,7 +2333,7 @@ def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
             elif funcName == 'MaxFilter':
                 expr.append("x z - abs x y - abs > z y ?")
             else:
-                raise ValueError('_Min_Max_Filter: Unknown \"funcName\" specified!')
+                raise ValueError('__min_max_filter__: Unknown \"funcName\" specified!')
         else:
             expr.append("")
     
@@ -2344,7 +2344,7 @@ def _Min_Max_Filter(src, flt1, flt2, planes, funcName):
 ################################################################################################################################
 ## Internal used functions for LimitFilter()
 ################################################################################################################################
-def _LimitFilterExpr(defref, thr, elast, largen_thr, value_range):
+def __limit_filter_expr__(defref, thr, elast, largen_thr, value_range):
     flt = " x "
     src = " y "
     ref = " z " if defref else src
@@ -2383,10 +2383,10 @@ def _LimitFilterExpr(defref, thr, elast, largen_thr, value_range):
     
     return limitExpr
 ################################################################################################################################
-def _LimitDiffLut(diff, thr, elast, largen_thr, planes):
+def __limit_diff_lut__(diff, thr, elast, largen_thr, planes):
     # Set VS core and function name
     core = vs.get_core()
-    funcName = '_LimitDiffLut'
+    funcName = '__limit_diff_lut__'
     
     if not isinstance(diff, vs.VideoNode):
         raise TypeError(funcName + ': \"diff\" must be a clip!')
