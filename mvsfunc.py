@@ -17,6 +17,7 @@
 ##     PlaneStatistics
 ##     PlaneCompare
 ##     ShowAverage
+##     FilterIf
 ##     FilterCombed
 ################################################################################################################################
 ## Utility functions:
@@ -1326,24 +1327,26 @@ def ShowAverage(clip, alignment=None):
 
 
 ################################################################################################################################
-## Runtime function: FilterCombed()
+## Runtime function: FilterIf()
 ################################################################################################################################
-## Take the frames from clip "flt" that is marked as combed and the ones from clip "src" that is not.
-## The frame property '_Combed' from clip "props" is evaluated to determine whether it's combed.
+## Take the frames from clip "flt" that is marked to be filtered and the ones from clip "src" that is not.
+## An arbitrary frame property named "prop_name" from clip "props" is evaluated to determine whether it should be filtered.
 ################################################################################################################################
 ## Basic parameters
 ##     src {clip}: the source clip
 ##         can be of any constant format
-##     flt {clip}: the filtered clip (de-interlaced)
+##     flt {clip}: the filtered clip
 ##         must be of the same format and dimension as "src"
+##     prop_name {str} (mandatory): the frame property to be evaluated
+##         for each frame, if this property exists and is True, then take the frame from "flt", otherwise take the one from "src"
 ##     props {clip} (optional): the clip from which the frame property is evaluated
 ##         can be of any format, should have the same number of frames as "src"
 ##         default: None (use "src")
 ################################################################################################################################
-def FilterCombed(src, flt, props=None):
+def FilterIf(src, flt, prop_name, props=None):
     # Set VS core and function name
     core = vs.get_core()
-    funcName = 'FilterCombed'
+    funcName = 'FilterIf'
     
     if not isinstance(src, vs.VideoNode):
         raise TypeError(funcName + ': \"src\" must be a clip!')
@@ -1359,25 +1362,46 @@ def FilterCombed(src, flt, props=None):
     if src.width != flt.width or src.height != flt.height:
         raise ValueError(funcName + ': \"src\" and \"flt\" must be of the same width and height!')
     
+    if prop_name is None or not isinstance(prop_name, str):
+        raise TypeError(funcName + ': \"prop_name\" must be specified and must be a str!')
+    else:
+        prop_name = __check_arg_prop__(prop_name, None, None, 'prop_name', funcName)
+    
     if props is None:
         props = src
-    else:
-        if sFormat.id != props.format.id:
-            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same format!')
-        if src.width != props.width or src.height != props.height:
-            raise ValueError(funcName + ': \"src\" and \"props\" must be of the same width and height!')
     
     # FrameEval function
-    def _FilterCombedFrame(n, f):
+    def _FilterIfFrame(n, f):
         try:
-            if f.props._Combed:
+            if f.props.__getattr__(prop_name):
                 return flt
-        except:
+        except KeyError:
             pass
         return src
     
     # Process
-    return core.std.FrameEval(src, _FilterCombedFrame, props)
+    return core.std.FrameEval(src, _FilterIfFrame, props)
+################################################################################################################################
+
+
+################################################################################################################################
+## Runtime function: FilterCombed()
+################################################################################################################################
+## Take the frames from clip "flt" that is marked as combed and the ones from clip "src" that is not.
+## The frame property '_Combed' from clip "props" is evaluated to determine whether it's combed.
+## This function is an instantiation of FilterIf()
+################################################################################################################################
+## Basic parameters
+##     src {clip}: the source clip
+##         can be of any constant format
+##     flt {clip}: the filtered clip (de-interlaced)
+##         must be of the same format and dimension as "src"
+##     props {clip} (optional): the clip from which the frame property is evaluated
+##         can be of any format, should have the same number of frames as "src"
+##         default: None (use "src")
+################################################################################################################################
+def FilterCombed(src, flt, props=None):
+    return FilterIf(src, flt, '_Combed', props)
 ################################################################################################################################
 
 
@@ -2207,6 +2231,31 @@ def GetPlane(clip, plane=None):
 ## Internal used functions below
 ################################################################################################################################
 ################################################################################################################################
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used function to check the argument for frame property
+################################################################################################################################
+def __check_arg_prop__(arg, default=None, defaultTrue=None, argName='arg', funcName='__check_arg_prop__'):
+    if defaultTrue is None:
+        defaultTrue = default
+    
+    if arg is None:
+        arg = default
+    elif isinstance(arg, int):
+        if arg:
+            arg = defaultTrue
+    elif isinstance(arg, str):
+        if arg:
+            if not arg.isidentifier():
+                raise ValueError(funcName + ': {argName}=\"{arg}\" is not a valid identifier!'.format(argName=argName, arg=arg))
+        else:
+            arg = False
+    else:
+        raise TypeError(funcName + ': \"{argName}\" must be a str or a bool!'.format(argName=argName))
+    
+    return arg
 ################################################################################################################################
 
 
