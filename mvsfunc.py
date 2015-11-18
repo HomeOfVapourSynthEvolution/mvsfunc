@@ -394,6 +394,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Apply matrix conversion for YUV or YCoCg input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
+            clip = SetColorSpace(clip, Matrix=0)
         elif matrix == "2020cl":
             clip = core.fmtc.matrix2020cl(clip, full=fulls)
         else:
@@ -603,6 +604,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
+            clip = SetColorSpace(clip, Matrix=2)
         elif matrix == "2020cl":
             clip = core.fmtc.matrix2020cl(clip, full=fulld)
         else:
@@ -662,7 +664,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     psample {int}: internal processed precision
 ##         - 0: 16-bit integer, less accuracy, less memory consumption
 ##         - 1: 32-bit float, more accuracy, more memory consumption
-##         default: 0 for integer input, 1 for float input
+##         default: 1
 ################################################################################################################################
 ## Parameters of input properties
 ##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
@@ -756,7 +758,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Get properties of internal processed clip
     if psample is None:
-        psample = sSType
+        psample = vs.FLOAT
     elif not isinstance(psample, int):
         raise TypeError(funcName + ': \"psample\" must be an int!')
     elif psample != vs.INTEGER and psample != vs.FLOAT:
