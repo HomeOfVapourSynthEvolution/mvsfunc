@@ -962,17 +962,17 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Final estimate
     for i in range(0, refine):
-        if radius1 < 1:
+        if radius2 < 1:
             # Apply BM3D final estimate
-            flt = core.bm3d.Basic(clip, ref=flt, profile=profile2, sigma=sigma, \
+            flt = core.bm3d.Final(clip, ref=flt, profile=profile2, sigma=sigma, \
             block_size=block_size2, block_step=block_step2, group_size=group_size2, \
             bm_range=bm_range2, bm_step=bm_step2, th_mse=th_mse2, matrix=100)
         else:
             # Apply V-BM3D final estimate
-            flt = core.bm3d.VBasic(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2, \
+            flt = core.bm3d.VFinal(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2, \
             block_size=block_size2, block_step=block_step2, group_size=group_size2, \
             bm_range=bm_range2, bm_step=bm_step2, ps_num=ps_num2, ps_range=ps_range2, ps_step=ps_step2, \
-            th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius1, sample=pSType)
+            th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius2, sample=pSType)
             # Shuffle Y plane back if not processed
             if not onlyY and sigma[0] <= 0:
                 flt = core.std.ShufflePlanes([clip,flt,flt], [0,1,2], vs.YUV)
