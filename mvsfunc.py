@@ -38,6 +38,7 @@
 ##     AssumeCombed
 ################################################################################################################################
 ## Helper functions:
+##     CheckVersion
 ##     GetMatrix
 ##     zDepth
 ##     GetPlane
@@ -52,6 +53,7 @@ import math
 ################################################################################################################################
 
 
+MvsFuncVersion = 5
 VSMaxPlaneNum = 3
 
 
@@ -2033,13 +2035,42 @@ def AssumeCombed(clip, combed=True):
 
 
 ################################################################################################################################
-## Helper function: GetMatrix()
+## Helper function: CheckVersion()
 ################################################################################################################################
-## Return str or int format parameter "matrix"
+## Check if the version of mvsfunc matches the specified version requirements.
+## For example, if you write a script requires at least mvsfunc-r5, use mvf.CheckVersion(5) to make sure r5 or later version is used.
 ################################################################################################################################
 ## Parameters
-##     clip: the source clip
-##     matrix: explicitly specify matrix in int or str format, not case-sensitive
+##     version {int} (mandatory): specify the required version number
+##     less {bool}: if False, raise error when this mvsfunc's version is less than the specified version
+##         default: False
+##     equal {bool}: if False, raise error when this mvsfunc's version is equal to the specified version
+##         default: True
+##     greater {bool}: if False, raise error when this mvsfunc's version is greater than the specified version
+##         default: True
+################################################################################################################################
+def CheckVersion(version, less=False, equal=True, greater=True):
+    funcName = 'CheckVersion'
+    
+    if not less and MvsFuncVersion < version:
+        raise ImportWarning('mvsfunc version(={0}) is less than the version(={1}) specified!'.format(MvsFuncVersion, version))
+    if not equal and MvsFuncVersion == version:
+        raise ImportWarning('mvsfunc version(={0}) is equal to the version(={1}) specified!'.format(MvsFuncVersion, version))
+    if not greater and MvsFuncVersion > version:
+        raise ImportWarning('mvsfunc version(={0}) is greater than the version(={1}) specified!'.format(MvsFuncVersion, version))
+    
+    return True
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GetMatrix()
+################################################################################################################################
+## Return str or int format parameter "matrix".
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##     matrix {int|str}: explicitly specify matrix in int or str format, not case-sensitive
 ##         - 0 | "RGB"
 ##         - 1 | "709" | "bt709"
 ##         - 2 | "Unspecified": same as not specified (None)
@@ -2154,7 +2185,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ################################################################################################################################
 ## Helper function: zDepth()
 ################################################################################################################################
-## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg
+## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg.
 ################################################################################################################################
 def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
     # Set VS core and function name
@@ -2197,7 +2228,7 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
 ################################################################################################################################
 ## Helper function: GetPlane()
 ################################################################################################################################
-## Extract specific plane and store it in a Gray clip
+## Extract specific plane and store it in a Gray clip.
 ################################################################################################################################
 ## Parameters
 ##     clip {clip}: the source clip
