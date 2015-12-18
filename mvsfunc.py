@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2015.11
+## 2015.12
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -2185,7 +2185,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ################################################################################################################################
 ## Helper function: zDepth()
 ################################################################################################################################
-## Smart function to utilize the depth conversion for both 1.0 and 2.0 API of vszimg.
+## Smart function to utilize zimg depth conversion for both 1.0 and 2.0 API of vszimg as well as core.resize.
 ################################################################################################################################
 def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
     # Set VS core and function name
@@ -2212,13 +2212,16 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     format = core.register_format(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
     
     # Process
-    zFuncs = core.z.get_functions()
-    if zFuncs.__contains__('Format'):
+    zimgResize = core.version_number() >= 29
+    zimgPlugin = core.get_plugins().__contains__('the.weather.channel')
+    if zimgPlugin and core.z.get_functions().__contains__('Format'):
         clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
-    elif zFuncs.__contains__('Depth'):
+    elif zimgResize:
+        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type)
+    elif zimgPlugin and core.z.get_functions().__contains__('Depth'):
         clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
     else:
-        raise AttributeError(funcName + ': Unsupported zimg used! z.Format or z.Depth not found!')
+        raise AttributeError(funcName + ': Available zimg not found!')
     
     # Output
     return clip
