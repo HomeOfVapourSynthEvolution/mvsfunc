@@ -1,10 +1,10 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2015.12
+## 2016.01
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
-##     zimg
+##     zimg (optional)
 ##     BM3D
 ################################################################################################################################
 ## Main functions:
@@ -80,7 +80,8 @@ VSMaxPlaneNum = 3
 ## Basic parameters
 ##     input {clip}: clip to be converted
 ##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
-##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
+##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
+##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
@@ -141,19 +142,24 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         fulls = False if sIsYUV or sIsGRAY else True
     elif not isinstance(fulls, int):
         raise TypeError(funcName + ': \"fulls\" must be a bool!')
-    else:
-        clip = SetColorSpace(clip, ColorRange=0 if fulls else 1)
     
     # Get properties of output clip
+    lowDepth = False
+    
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
         raise TypeError(funcName + ': \"depth\" must be an int!')
     else:
-        dbitPS = depth
+        if depth < 8:
+            dbitPS = 8
+            lowDepth = True
+        else:
+            dbitPS = depth
     if sample is None:
         if depth is None:
             dSType = sSType
+            depth = dbitPS
         else:
             dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
     elif not isinstance(sample, int):
@@ -162,7 +168,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
-    if dSType == vs.INTEGER and (dbitPS < 8 or dbitPS > 16):
+    if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
         raise ValueError(funcName + ': {0}-bit float output is not supported!'.format(dbitPS))
@@ -172,9 +178,23 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     elif not isinstance(fulld, int):
         raise TypeError(funcName + ': \"fulld\" must be a bool!')
     
+    # Low-depth support
+    if lowDepth:
+        if dither == "none" or dither == 1:
+            clip = _quantization_conversion(clip, sbitPS, depth, vs.INTEGER, fulls, fulld, False, False, 8, 0, funcName)
+            clip = _quantization_conversion(clip, depth, 8, vs.INTEGER, fulld, fulld, False, False, 8, 0, funcName)
+            return clip
+        else:
+            full = fulld
+            clip = _quantization_conversion(clip, sbitPS, depth, vs.INTEGER, fulls, full, False, False, 16, 1, funcName)
+            sSType = vs.INTEGER
+            sbitPS = 16
+            fulls = False
+            fulld = False
+    
     # Whether to use z.Depth or fmtc.bitdepth for conversion
     # If not set, when full range is involved for integer format, use z.Depth
-    # When 11-,13-,14-,15-bit integer or 16-bit float format is involved, always use z.Depth
+    # When 13-,15-bit integer or 16-bit float format is involved, force using z.Depth
     if useZ is None:
         useZ = (sSType == vs.INTEGER and fulls) or (dSType == vs.INTEGER and fulld)
     elif not isinstance(useZ, int):
@@ -238,7 +258,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
             raise TypeError(funcName + ': \"ampo\" must be a float or an int!')
     
     # Skip processing if not needed
-    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls):
+    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls) and not lowDepth:
         return clip
     
     # Apply conversion
@@ -246,6 +266,10 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
+    
+    # Low-depth support
+    if lowDepth:
+        clip = _quantization_conversion(clip, depth, 8, vs.INTEGER, full, full, False, False, 8, 0, funcName)
     
     # Output
     clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
@@ -267,7 +291,8 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##         decides the conversion coefficients from YUV to RGB
 ##         check GetMatrix() for available values
 ##         default: None, guessed according to the color family and size of input clip
-##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
+##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
+##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
@@ -344,7 +369,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
-    if dSType == vs.INTEGER and (dbitPS < 8 or dbitPS > 16):
+    if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
         raise ValueError(funcName + ': {0}-bit float output is not supported!'.format(dbitPS))
@@ -435,7 +460,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         - "411" | "4:1:1" | "41"
 ##         - "410" | "4:1:0" | "42"
 ##         default: 4:4:4 for RGB/Gray input, same as input is for YUV/YCoCg input
-##     depth {int}: output bit depth, can be 8-16 bit integer or 16/32 bit float
+##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
+##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
@@ -515,7 +541,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
-    if dSType == vs.INTEGER and (dbitPS < 8 or dbitPS > 16):
+    if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
         raise ValueError(funcName + ': {0}-bit float output is not supported!'.format(dbitPS))
@@ -684,7 +710,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     css {str}: chroma subsampling of output clip, only valid when output=0 and input clip is YUV/YCoCg
 ##         check ToYUV() for available values
 ##         default is the same as that of the input clip
-##     depth {int}: bit depth of output clip, can be 8-16 for integer or 16/32 for float
+##     depth {int}: bit depth of output clip, can be 1-16 for integer or 16/32 for float
+##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
 ##     sample {int}: sample type of output clip, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
@@ -887,7 +914,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
-    if dSType == vs.INTEGER and (dbitPS < 8 or dbitPS > 16):
+    if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
         raise ValueError(funcName + ': {0}-bit float output is not supported!'.format(dbitPS))
@@ -2273,6 +2300,200 @@ def GetPlane(clip, plane=None):
 ## Internal used functions below
 ################################################################################################################################
 ################################################################################################################################
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used function to calculate quantization parameters
+################################################################################################################################
+def _quantization_parameters(sample=None, depth=None, full=None, chroma=None, funcName='_quantization_parameters'):
+    qp = {}
+    
+    if sample is None:
+        sample = vs.INTEGER
+    if depth is None:
+        depth = 8
+    elif depth < 1:
+        raise ValueError(funcName + ': \"depth\" should not be less than 1!')
+    if full is None:
+        full = True
+    if chroma is None:
+        chroma = False
+    
+    lShift = depth - 8
+    rShift = 8 - depth
+    
+    if sample == vs.INTEGER:
+        if chroma:
+            qp['floor'] = 0 if full else 16 << lShift if lShift >= 0 else 16 >> rShift
+            qp['neutral'] = 128 << lShift if lShift >= 0 else 128 >> rShift
+            qp['ceil'] = (1 << depth) - 1 if full else 240 << lShift if lShift >= 0 else 240 >> rShift
+            qp['range'] = qp['ceil'] - qp['floor']
+        else:
+            qp['floor'] = 0 if full else 16 << lShift if lShift >= 0 else 16 >> rShift
+            qp['neutral'] = qp['floor']
+            qp['ceil'] = (1 << depth) - 1 if full else 235 << lShift if lShift >= 0 else 235 >> rShift
+            qp['range'] = qp['ceil'] - qp['floor']
+    elif sample == vs.FLOAT:
+        if chroma:
+            qp['floor'] = -0.5
+            qp['neutral'] = 0.0
+            qp['ceil'] = 0.5
+            qp['range'] = qp['ceil'] - qp['floor']
+        else:
+            qp['floor'] = 0.0
+            qp['neutral'] = qp['floor']
+            qp['ceil'] = 1.0
+            qp['range'] = qp['ceil'] - qp['floor']
+    else:
+        raise ValueError(funcName + ': Unsupported \"sample\" specified!')
+    
+    return qp
+################################################################################################################################
+
+
+################################################################################################################################
+## Internal used function to do quantization conversion with std.Expr
+################################################################################################################################
+def _quantization_conversion(clip, depths=None, depthd=None, sample=None, fulls=None, fulld=None, chroma=None,\
+clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
+    # Set VS core and function name
+    core = vs.get_core()
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsRGB = sColorFamily == vs.RGB
+    sIsYUV = sColorFamily == vs.YUV
+    sIsGRAY = sColorFamily == vs.GRAY
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    if sColorFamily == vs.COMPAT:
+        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+    
+    sbitPS = sFormat.bits_per_sample
+    sSType = sFormat.sample_type
+    
+    if depths is None:
+        depths = sbitPS
+    elif not isinstance(depths, int):
+        raise TypeError(funcName + ': \"depths\" must be an int!')
+    
+    if fulls is None:
+        # If not set, assume limited range for YUV and Gray input
+        fulls = False if sIsYUV or sIsGRAY else True
+    elif not isinstance(fulls, int):
+        raise TypeError(funcName + ': \"fulls\" must be a bool!')
+    
+    if chroma is None:
+        chroma = False
+    elif not isinstance(chroma, int):
+        raise TypeError(funcName + ': \"chroma\" must be a bool!')
+    elif not sIsGRAY:
+        chroma = False
+    
+    # Get properties of output clip
+    if depthd is None:
+        pass
+    elif not isinstance(depthd, int):
+        raise TypeError(funcName + ': \"depthd\" must be an int!')
+    if sample is None:
+        if depthd is None:
+            dSType = sSType
+            depthd = depths
+        else:
+            dSType = vs.FLOAT if dbitPS >= 32 else vs.INTEGER
+    elif not isinstance(sample, int):
+        raise TypeError(funcName + ': \"sample\" must be an int!')
+    elif sample != vs.INTEGER and sample != vs.FLOAT:
+        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+    else:
+        dSType = sample
+    if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
+        raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
+    if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
+        raise ValueError(funcName + ': {0}-bit float output is not supported!'.format(dbitPS))
+    
+    if fulld is None:
+        fulld = fulls
+    elif not isinstance(fulld, int):
+        raise TypeError(funcName + ': \"fulld\" must be a bool!')
+    
+    if clamp is None:
+        clamp = dSType == vs.INTEGER
+    elif not isinstance(clamp, int):
+        raise TypeError(funcName + ': \"clamp\" must be a bool!')
+    
+    if dbitPS is None:
+        if depthd < 8:
+            dbitPS = 8
+        else:
+            dbitPS = depthd
+    elif not isinstance(dbitPS, int):
+        raise TypeError(funcName + ': \"dbitPS\" must be an int!')
+    
+    if mode is None:
+        mode = 0
+    elif not isinstance(mode, int):
+        raise TypeError(funcName + ': \"mode\" must be an int!')
+    elif depthd >= 8:
+        mode = 0
+    
+    dFormat = core.register_format(sFormat.color_family, dSType, dbitPS, sFormat.subsampling_w, sFormat.subsampling_h)
+    
+    # Expression function
+    def gen_expr(chroma, mode):
+        if dSType == vs.INTEGER:
+            exprLower = 0
+            exprUpper = 1 << (dFormat.bytes_per_sample * 8) - 1
+        else:
+            exprLower = float('-inf')
+            exprUpper = float('inf')
+        
+        sQP = _quantization_parameters(sSType, depths, fulls, chroma, funcName)
+        dQP = _quantization_parameters(dSType, depthd, fulld, chroma, funcName)
+        
+        gain = dQP['range'] / sQP['range']
+        offset = dQP['neutral' if chroma else 'floor'] - sQP['neutral' if chroma else 'floor'] * gain
+        
+        if mode == 1:
+            scale = 256
+            gain = gain * scale
+            offset = offset * scale
+        else:
+            scale = 1
+        
+        if gain != 1 or offset != 0 or clamp:
+            expr = " x "
+            if gain != 1: expr = expr + " {} * ".format(gain)
+            if offset != 0: expr = expr + " {} + ".format(offset)
+            if clamp:
+                if dQP['floor'] * scale > exprLower: expr = expr + " {} max ".format(dQP['floor'] * scale)
+                if dQP['ceil'] * scale < exprUpper: expr = expr + " {} min ".format(dQP['ceil'] * scale)
+        else:
+            expr = ""
+        
+        return expr
+    
+    # Process
+    Yexpr = gen_expr(False, mode)
+    Cexpr = gen_expr(True, mode)
+    
+    if sIsYUV or sIsYCOCG:
+        expr = [Yexpr, Cexpr]
+    elif sIsGRAY and chroma:
+        expr = Cexpr
+    else:
+        expr = Yexpr
+    
+    clip = core.std.Expr(clip, expr, format=dFormat.id)
+    
+    # Output
+    clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
+    return clip
 ################################################################################################################################
 
 
