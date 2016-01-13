@@ -42,6 +42,7 @@
 ##     GetMatrix
 ##     zDepth
 ##     GetPlane
+##     PlaneAverage
 ################################################################################################################################
 
 
@@ -1105,7 +1106,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     clipPlane = GetPlane(clip, plane)
     
     # Plane Mean
-    clip = core.std.PlaneAverage(clip, plane, "PlaneMean")
+    clip = PlaneAverage(clip, plane, "PlaneMean")
     
     # Plane MAD (mean absolute deviation)
     if mad:
@@ -1120,7 +1121,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
             expr = "x {mean} - abs".format(mean=mean)
             return core.std.Expr(clip, expr)
         ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
-        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAD")
+        ADclip = PlaneAverage(ADclip, 0, "PlaneMAD")
         
         def _PlaneMADTransfer(n, f):
             fout = f[0].copy()
@@ -1135,7 +1136,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
             expr = "x {mean} - dup *".format(mean=mean)
             return core.std.Expr(clip, expr, floatFormat.id)
         SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
-        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneVar")
+        SDclip = PlaneAverage(SDclip, 0, "PlaneVar")
         
         def _PlaneVarSTDTransfer(n, f):
             fout = f[0].copy()
@@ -1150,7 +1151,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     if rms:
         expr = "x x *"
         squareClip = core.std.Expr(clipPlane, expr, floatFormat.id)
-        squareClip = core.std.PlaneAverage(squareClip, 0, "PlaneMS")
+        squareClip = PlaneAverage(squareClip, 0, "PlaneMS")
         
         def _PlaneRMSTransfer(n, f):
             fout = f[0].copy()
@@ -1238,7 +1239,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
     if mae:
         expr = "x y - abs"
         ADclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
-        ADclip = core.std.PlaneAverage(ADclip, 0, "PlaneMAE")
+        ADclip = PlaneAverage(ADclip, 0, "PlaneMAE")
         
         def _PlaneMAETransfer(n, f):
             fout = f[0].copy()
@@ -1250,7 +1251,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
     if rmse or psnr:
         expr = "x y - dup *"
         SDclip = core.std.Expr([clip1Plane, clip2Plane], expr, floatFormat.id)
-        SDclip = core.std.PlaneAverage(SDclip, 0, "PlaneMSE")
+        SDclip = PlaneAverage(SDclip, 0, "PlaneMSE")
         
         def _PlaneRMSEnPSNRTransfer(n, f):
             fout = f[0].copy()
@@ -1263,8 +1264,8 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
     
     # Plane Cov (covariance) and Corr (correlation)
     if cov or corr:
-        clip1Mean = core.std.PlaneAverage(clip1Plane, 0, "PlaneMean")
-        clip2Mean = core.std.PlaneAverage(clip2Plane, 0, "PlaneMean")
+        clip1Mean = PlaneAverage(clip1Plane, 0, "PlaneMean")
+        clip2Mean = PlaneAverage(clip2Plane, 0, "PlaneMean")
         
         def _PlaneCoDFrame(n, f, clip1, clip2):
             mean1 = f[0].props.PlaneMean * valueRange
@@ -1272,7 +1273,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
             expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
             return core.std.Expr([clip1, clip2], expr, floatFormat.id)
         CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
-        CoDclip = core.std.PlaneAverage(CoDclip, 0, "PlaneCov")
+        CoDclip = PlaneAverage(CoDclip, 0, "PlaneCov")
         clips = [clip1, CoDclip]
         
         if corr:
@@ -1282,8 +1283,8 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
                 return core.std.Expr(clip, expr, floatFormat.id)
             SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
             SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
-            SDclip1 = core.std.PlaneAverage(SDclip1, 0, "PlaneVar")
-            SDclip2 = core.std.PlaneAverage(SDclip2, 0, "PlaneVar")
+            SDclip1 = PlaneAverage(SDclip1, 0, "PlaneVar")
+            SDclip2 = PlaneAverage(SDclip2, 0, "PlaneVar")
             clips.append(SDclip1)
             clips.append(SDclip2)
         
@@ -1351,7 +1352,7 @@ def ShowAverage(clip, alignment=None):
     
     avg = []
     for p in range(sNumPlanes):
-        avg.append(core.std.PlaneAverage(clip, p))
+        avg.append(PlaneAverage(clip, p))
     
     return core.std.FrameEval(clip, _ShowAverageFrame, prop_src=avg)
 ################################################################################################################################
@@ -2284,10 +2285,69 @@ def GetPlane(clip, plane=None):
     elif not isinstance(plane, int):
         raise TypeError(funcName + ': \"plane\" must be an int!')
     elif plane < 0 or plane > sNumPlanes:
-        raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
     
     # Process
     return core.std.ShufflePlanes(clip, plane, vs.GRAY)
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: PlaneAverage()
+################################################################################################################################
+## Evaluate normalized average value of the specified plane and store it as a frame property.
+## Mainly as a wrap function to support both std.PlaneAverage and std.PlaneStats with the same interface.
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##         can be of any constant format
+##     plane {int}: the plane to evaluate
+##         default: 0
+##     prop {str}: the frame property name to be written
+##         default: 'PlaneAverage'
+################################################################################################################################
+def PlaneAverage(clip, plane=None, prop=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'PlaneAverage'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    sNumPlanes = sFormat.num_planes
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
+    
+    if prop is None:
+        prop = 'PlaneAverage'
+    elif not isinstance(prop, str):
+        raise TypeError(funcName + ': \"prop\" must be a str!')
+    
+    # Process
+    if core.std.get_functions().__contains__('PlaneAverage'):
+        clip = core.std.PlaneAverage(clip, plane=plane, prop=prop)
+    elif core.std.get_functions().__contains__('PlaneStats'):
+        clip = core.std.PlaneStats(clip, plane=plane, prop='PlaneStats')
+        def _PlaneAverageTransfer(n, f):
+            fout = f.copy()
+            fout.props.__setattr__(prop, f.props.PlaneStatsAverage)
+            del fout.props.PlaneStatsAverage
+            del fout.props.PlaneStatsMinMax
+            return fout
+        clip = core.std.ModifyFrame(clip, clip, selector=_PlaneAverageTransfer)
+    else:
+        raise AttributeError(funcName + ': Available plane average function not found!')
+    
+    # output
+    return clip
 ################################################################################################################################
 
 
