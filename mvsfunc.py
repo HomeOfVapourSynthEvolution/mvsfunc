@@ -878,7 +878,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if pre is not None:
         if not isinstance(pre, vs.VideoNode):
             raise TypeError(funcName + ': \"pre\" must be a clip!')
-        if pre.format != sFormat:
+        if pre.format.id != sFormat.id:
             raise ValueError(funcName + ': clip \"pre\" must be of the same format as the input clip!')
         if pre.width != input.width or pre.height != input.height:
             raise ValueError(funcName + ': clip \"pre\" must be of the same size as the input clip!')
@@ -886,7 +886,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if ref is not None:
         if not isinstance(ref, vs.VideoNode):
             raise TypeError(funcName + ': \"ref\" must be a clip!')
-        if ref.format != sFormat:
+        if ref.format.id != sFormat.id:
             raise ValueError(funcName + ': clip \"ref\" must be of the same format as the input clip!')
         if ref.width != input.width or ref.height != input.height:
             raise ValueError(funcName + ': clip \"ref\" must be of the same size as the input clip!')
