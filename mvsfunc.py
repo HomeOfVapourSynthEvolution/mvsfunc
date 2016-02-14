@@ -838,6 +838,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             raise TypeError(funcName + ': sigma must be a float[] or an int[]!')
     if sIsGRAY:
         sigma = [sigma[0],0,0]
+    skip = sigma[0] <= 0 and sigma[1] <= 0 and sigma[2] <= 0
     
     if radius1 is None:
         radius1 = 0
@@ -971,6 +972,8 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if ref is not None:
         # Use custom basic estimate specified by clip "ref"
         flt = ref
+    elif skip:
+        flt = clip
     elif radius1 < 1:
         # Apply BM3D basic estimate
         # Optional pre-filtered clip for block-matching can be specified by "pre"
@@ -990,7 +993,9 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Final estimate
     for i in range(0, refine):
-        if radius2 < 1:
+        if skip:
+            flt = clip
+        elif radius2 < 1:
             # Apply BM3D final estimate
             flt = core.bm3d.Final(clip, ref=flt, profile=profile2, sigma=sigma, \
             block_size=block_size2, block_step=block_step2, group_size=group_size2, \
