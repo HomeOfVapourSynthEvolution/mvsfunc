@@ -1,10 +1,9 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.01
+## 2016.02
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
-##     zimg (optional)
 ##     BM3D
 ################################################################################################################################
 ## Main functions:
@@ -54,7 +53,7 @@ import math
 ################################################################################################################################
 
 
-MvsFuncVersion = 6
+MvsFuncVersion = 7
 VSMaxPlaneNum = 3
 
 
@@ -110,12 +109,17 @@ VSMaxPlaneNum = 3
 ##         - False: force fmtc.bitdepth
 ##         - True: force z.Depth
 ##         default: None
+##     prefer_props {bool}: determines whether frame properties or arguments take precedence when both are present
+##         For now, it only makes sense when core.resize(zimg) is involved and only affects the _ColorRange property.
+##         - False: prefer arguments
+##         - True: prefer frame properties
+##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
 ##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using z.Depth
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'Depth'
@@ -123,6 +127,8 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     
     if not isinstance(input, vs.VideoNode):
         raise TypeError(funcName + ': \"input\" must be a clip!')
+    
+    prefer_props_range = None
     
     # Get properties of input clip
     sFormat = input.format
@@ -141,6 +147,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     if fulls is None:
         # If not set, assume limited range for YUV and Gray input
         fulls = False if sIsYUV or sIsGRAY else True
+        prefer_props_range = True
     elif not isinstance(fulls, int):
         raise TypeError(funcName + ': \"fulls\" must be a bool!')
     
@@ -207,6 +214,13 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
     if (sSType == vs.FLOAT and sbitPS < 32) or (dSType == vs.FLOAT and dbitPS < 32):
         useZ = True
     
+    if prefer_props is None:
+        prefer_props = False
+    elif not isinstance(prefer_props, int):
+        raise TypeError(funcName + ': \"prefer_props\" must be a bool!')
+    if prefer_props_range is None:
+        prefer_props_range = prefer_props
+    
     # Dithering type
     if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
             raise TypeError(funcName + ': \"ampn\" must be a float or an int!')
@@ -259,12 +273,16 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
             raise TypeError(funcName + ': \"ampo\" must be a float or an int!')
     
     # Skip processing if not needed
-    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls) and not lowDepth:
+    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or (fulld == fulls and not prefer_props_range)) and not lowDepth:
         return clip
+    
+    # Override frame properties if needed
+    if not prefer_props_range:
+        clip = SetColorSpace(clip, ColorRange=0 if fulls else 1)
     
     # Apply conversion
     if useZ:
-        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither)
+        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
     
@@ -273,7 +291,6 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
         clip = _quantization_conversion(clip, depth, 8, vs.INTEGER, full, full, False, False, 8, 0, funcName)
     
     # Output
-    clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     return clip
 ################################################################################################################################
 
@@ -301,7 +318,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -310,7 +327,7 @@ dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
 kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.get_core()
@@ -407,15 +424,15 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if sIsRGB:
         # Skip matrix conversion for RGB input
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
     else:
         # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply chroma up-sampling if needed
         if sHSubS != 1 or sVSubS != 1:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
@@ -428,7 +445,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.RGB)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
     # Output
     return clip
@@ -470,7 +487,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -479,7 +496,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
 kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.get_core()
@@ -614,13 +631,13 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             # Apply depth conversion for processed clip
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         widthc = input.width // dHSubS
         heightc = input.height // dVSubS
@@ -629,7 +646,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
     else:
         # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
@@ -642,7 +659,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if dHSubS != sHSubS or dVSubS != sVSubS:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulld, fulld=fulld, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
     # Output
     return clip
@@ -718,7 +735,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default is the same as that of the input clip
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -741,7 +758,7 @@ def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=
 refine=None, pre=None, ref=None, psample=None, \
 matrix=None, full=None, \
 output=None, css=None, depth=None, sample=None, \
-dither=None, useZ=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
 cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None, \
 cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None, \
 block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None, \
@@ -934,30 +951,30 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if sIsGRAY:
         onlyY = True
         # Convert Gray input to full range Gray in processed format
-        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         if pre is not None:
-            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         if ref is not None:
-            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, ampo, ampn, dyn, staticnoise)
+            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     else:
         # Convert input to full range RGB
         clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert full range RGB to full range OPP
         clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
-        dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert OPP to Gray if only Y is processed
         srcOPP = clip
         if sigma[1] <= 0 and sigma[2] <= 0:
@@ -1012,7 +1029,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Convert to output format
     if sIsGRAY:
-        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     else:
         # Shuffle back to YUV if not all planes are processed
         if onlyY:
@@ -1026,14 +1043,14 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         if output <= 1:
             # Convert full range OPP to full range RGB
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV/YCoCg
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
-            dither, useZ, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
         else:
             # Depth conversion for RGB or OPP output
-            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
     # Output
     return clip
@@ -2220,7 +2237,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ################################################################################################################################
 ## Smart function to utilize zimg depth conversion for both 1.0 and 2.0 API of vszimg as well as core.resize.
 ################################################################################################################################
-def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
+def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None, prefer_props=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'zDepth'
@@ -2247,10 +2264,10 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     # Process
     zimgResize = core.version_number() >= 29
     zimgPlugin = core.get_plugins().__contains__('the.weather.channel')
-    if zimgPlugin and core.z.get_functions().__contains__('Format'):
+    if zimgResize:
+        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, prefer_props=prefer_props)
+    elif zimgPlugin and core.z.get_functions().__contains__('Format'):
         clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
-    elif zimgResize:
-        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type)
     elif zimgPlugin and core.z.get_functions().__contains__('Depth'):
         clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
     else:
