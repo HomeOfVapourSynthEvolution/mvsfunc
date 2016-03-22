@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.02
+## 2016.03
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -27,6 +27,7 @@
 ##     MaxFilter
 ##     LimitFilter
 ##     PointPower
+##     CheckMatrix
 ################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
@@ -139,7 +140,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -223,7 +224,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     
     # Dithering type
     if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
-            raise TypeError(funcName + ': \"ampn\" must be a float or an int!')
+            raise TypeError(funcName + ': \"ampn\" must be an int or a float!')
     
     if dither is None:
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
@@ -270,7 +271,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
         if ampo is None:
             ampo = 1.5 if dither == 0 else 1
         elif not isinstance(ampo, float) and not isinstance(ampo, int):
-            raise TypeError(funcName + ': \"ampo\" must be a float or an int!')
+            raise TypeError(funcName + ': \"ampo\" must be an int or a float!')
     
     # Skip processing if not needed
     if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or (fulld == fulls and not prefer_props_range)) and not lowDepth:
@@ -349,7 +350,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -518,7 +519,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -783,7 +784,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -1844,6 +1845,97 @@ def PointPower(clip, vpow=None, hpow=None):
 ################################################################################################################################
 
 
+################################################################################################################################
+## Utility function: CheckMatrix()
+################################################################################################################################
+## *** TEST *** I'm not sure whether it will work or not ***
+################################################################################################################################
+## Check whether the input YUV clip matches specific color matrix
+## Output is RGB24, out of range pixels will be marked as 255, indicating that the matrix may not be correct
+## Additional plane mean values about the out of range pixels will be print on the frame
+## Multiple matrices can be specified simultaneously, and multiple results will be stacked vertically
+################################################################################################################################
+## Basic parameters
+##     clip {clip}: clip to evaluate
+##         must be of YUV or YCoCg color family
+##     matrices {str[]}: specify a (list of) matrix to test
+##         default: ['601', '709', '2020', '240', 'FCC', 'YCgCo']
+##     full {bool}: define if input clip is of full range
+##         default: False for YUV input, True for YCoCg input
+##     lower {float}: lower boundary for valid range (inclusive)
+##         default: -0.02
+##     upper {float}: upper boundary for valid range (inclusive)
+##         default: 1.02
+################################################################################################################################
+def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'CheckMatrix'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsRGB = sColorFamily == vs.RGB
+    sIsYUV = sColorFamily == vs.YUV
+    sIsGRAY = sColorFamily == vs.GRAY
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    if sColorFamily == vs.COMPAT:
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
+    if not (sIsYUV or sIsYCOCG):
+        raise ValueError(funcName + ': only YUV or YCoCg color family is allowed!')
+    
+    # Parameters
+    if matrices is None:
+        matrices = ['601', '709', '2020', '240', 'FCC', 'YCgCo']
+    elif not isinstance(matrices, list) and isinstance(matrices, str):
+        raise TypeError(funcName + ': \'matrices\' must be a (list of) str!')
+    
+    if full is None:
+        full = sIsYCOCG
+    elif not isinstance(full, int):
+        raise TypeError(funcName + ': \'full\' must be a bool!')
+    
+    if lower is None:
+        lower = -0.02
+    elif not (isinstance(lower, float) or isinstance(lower, int)):
+        raise TypeError(funcName + ': \'lower\' must be an int or a float!')
+    
+    if upper is None:
+        upper = 1.02
+    elif not (isinstance(upper, float) or isinstance(upper, int)):
+        raise TypeError(funcName + ': \'upper\' must be an int or a float!')
+    
+    # Process
+    clip = ToYUV(clip, css='444', depth=32, full=full)
+    
+    props = ['RMean', 'GMean', 'BMean', 'TotalMean']
+    def _FrameProps(n, f):
+        fout = f.copy()
+        fout.props.__setattr__(props[3], (f.props.__getattr__(props[0]) + f.props.__getattr__(props[1]) + f.props.__getattr__(props[2])) / 3)
+        return fout
+    
+    rgb_clips = []
+    for matrix in matrices:
+        rgb_clip = ToRGB(clip, matrix=matrix)
+        rgb_clip = rgb_clip.std.Expr('x {lower} < 1 x - x {upper} > x 0 ? ?'.format(lower=lower, upper=upper))
+        rgb_clip = PlaneAverage(rgb_clip, 0, props[0])
+        rgb_clip = PlaneAverage(rgb_clip, 1, props[1])
+        rgb_clip = PlaneAverage(rgb_clip, 2, props[2])
+        rgb_clip = core.std.ModifyFrame(rgb_clip, rgb_clip, selector=_FrameProps)
+        rgb_clip = Depth(rgb_clip, depth=8, dither='none')
+        rgb_clip = rgb_clip.text.FrameProps(props, alignment=7)
+        rgb_clip = rgb_clip.text.Text(matrix, alignment=8)
+        rgb_clips.append(rgb_clip)
+    
+    # Output
+    return core.std.StackVertical(rgb_clips)
+################################################################################################################################
+
+
 
 
 
@@ -2158,7 +2250,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     # Get properties of output clip
     if dIsRGB is None:
@@ -2454,7 +2546,7 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     sIsGRAY = sColorFamily == vs.GRAY
     sIsYCOCG = sColorFamily == vs.YCOCG
     if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': Color family *COMPAT* is not supported!')
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
