@@ -317,6 +317,8 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ##         default is the same as that of the input clip
 ##     full {bool}: define if input clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
+##     compat {bool}: force CompatBGR32 output, "depth" will be forced to 8
+##         default: False
 ################################################################################################################################
 ## Parameters of depth conversion
 ##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
@@ -329,7 +331,8 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None):
+kernel=None, taps=None, a1=None, a2=None, cplace=None, \
+compat=None):
     # Set VS core and function name
     core = vs.get_core()
     funcName = 'ToRGB'
@@ -371,6 +374,12 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         fulls = full
     
     # Get properties of output clip
+    if compat is None:
+        compat = False
+    elif not isinstance(compat, int):
+        raise TypeError(funcName + ': \"compat\" must be an int!')
+    if compat:
+        depth = 8
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
@@ -447,6 +456,9 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
             clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.RGB)
         # Apply depth conversion for output clip
         clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+    
+    if compat:
+        clip = core.resize.Bicubic(clip, format=vs.COMPATBGR32)
     
     # Output
     return clip
@@ -960,13 +972,13 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     else:
         # Convert input to full range RGB
         clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if pre is not None:
             pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if ref is not None:
             ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         # Convert full range RGB to full range OPP
         clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
         dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
@@ -1044,7 +1056,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         if output <= 1:
             # Convert full range OPP to full range RGB
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV/YCoCg
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
