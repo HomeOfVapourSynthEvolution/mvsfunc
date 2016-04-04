@@ -1,6 +1,6 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.03
+## 2016.04
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -28,6 +28,7 @@
 ##     LimitFilter
 ##     PointPower
 ##     CheckMatrix
+##     postfix2infix
 ################################################################################################################################
 ## Frame property functions:
 ##     SetColorSpace
@@ -1860,7 +1861,7 @@ def PointPower(clip, vpow=None, hpow=None):
 ################################################################################################################################
 ## Utility function: CheckMatrix()
 ################################################################################################################################
-## *** TEST *** I'm not sure whether it will work or not ***
+## *** EXPERIMENTAL *** I'm not sure whether it will work or not ***
 ################################################################################################################################
 ## Check whether the input YUV clip matches specific color matrix
 ## Output is RGB24, out of range pixels will be marked as 255, indicating that the matrix may not be correct
@@ -1945,6 +1946,74 @@ def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
     
     # Output
     return core.std.StackVertical(rgb_clips)
+################################################################################################################################
+
+
+################################################################################################################################
+## Utility function: postfix2infix()
+################################################################################################################################
+## Convert postfix expression (used by std.Expr) to infix expression
+################################################################################################################################
+## Basic parameters
+##     expr {str}: the postfix expression to be converted
+################################################################################################################################
+def postfix2infix(expr):
+    funcName = 'postfix2infix'
+    op1 = ['exp', 'log', 'sqrt', 'abs', 'not', 'dup']
+    op2 = ['+', '-', '*', '/', 'max', 'min', '>', '<', '=', '>=', '<=', 'and', 'or', 'xor', 'swap', 'pow']
+    op3 = ['?']
+
+    def remove_brackets(x):
+        if x[0] == '(' and x[len(x) - 1] == ')':
+            p = 1
+            for c in x[1:-1]:
+                if c == '(':
+                    p += 1
+                elif c == ')':
+                    p -= 1
+                if p == 0:
+                    break
+            if p == 1:
+                return x[1:-1]
+        return x
+
+    if not isinstance(expr, str):
+        raise TypeError(funcName + ': \'expr\' must be a str!')
+    expr_list = expr.split()
+
+    stack = []
+    for item in expr_list:
+        if op1.count(item) > 0:
+            try:
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            if item == 'dup':
+                stack.append(operand1)
+                stack.append(operand1)
+            else:
+                stack.append('{}({})'.format(item, remove_brackets(operand1)))
+        elif op2.count(item) > 0:
+            try:
+                operand2 = stack.pop()
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            stack.append('({} {} {})'.format(operand1, item, operand2))
+        elif op3.count(item) > 0:
+            try:
+                operand3 = stack.pop()
+                operand2 = stack.pop()
+                operand1 = stack.pop()
+            except IndexError:
+                raise ValueError(funcName + ': Invalid expression, require operands.')
+            stack.append('({} {} {} {} {})'.format(operand1, item, operand2, ':', operand3))
+        else:
+            stack.append(item)
+
+    if len(stack) > 1:
+        raise ValueError(funcName + ': Invalid expression, require operators.')
+    return remove_brackets(stack[0])
 ################################################################################################################################
 
 
