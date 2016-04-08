@@ -42,8 +42,9 @@
 ##     CheckVersion
 ##     GetMatrix
 ##     zDepth
-##     GetPlane
 ##     PlaneAverage
+##     GetPlane
+##     GrayScale
 ################################################################################################################################
 
 
@@ -2452,42 +2453,6 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
 
 
 ################################################################################################################################
-## Helper function: GetPlane()
-################################################################################################################################
-## Extract specific plane and store it in a Gray clip.
-################################################################################################################################
-## Parameters
-##     clip {clip}: the source clip
-##         can be of any constant format
-##     plane {int}: the plane to extract
-##         default: 0
-################################################################################################################################
-def GetPlane(clip, plane=None):
-    # Set VS core and function name
-    core = vs.get_core()
-    funcName = 'GetPlane'
-    
-    if not isinstance(clip, vs.VideoNode):
-        raise TypeError(funcName + ': \"clip\" must be a clip!')
-    
-    # Get properties of input clip
-    sFormat = clip.format
-    sNumPlanes = sFormat.num_planes
-    
-    # Parameters
-    if plane is None:
-        plane = 0
-    elif not isinstance(plane, int):
-        raise TypeError(funcName + ': \"plane\" must be an int!')
-    elif plane < 0 or plane > sNumPlanes:
-        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
-    
-    # Process
-    return core.std.ShufflePlanes(clip, plane, vs.GRAY)
-################################################################################################################################
-
-
-################################################################################################################################
 ## Helper function: PlaneAverage()
 ################################################################################################################################
 ## Evaluate normalized average value of the specified plane and store it as a frame property.
@@ -2542,6 +2507,86 @@ def PlaneAverage(clip, plane=None, prop=None):
         raise AttributeError(funcName + ': Available plane average function not found!')
     
     # output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GetPlane()
+################################################################################################################################
+## Extract specific plane and store it in a Gray clip.
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##         can be of any constant format
+##     plane {int}: the plane to extract
+##         default: 0
+################################################################################################################################
+def GetPlane(clip, plane=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'GetPlane'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    sNumPlanes = sFormat.num_planes
+    
+    # Parameters
+    if plane is None:
+        plane = 0
+    elif not isinstance(plane, int):
+        raise TypeError(funcName + ': \"plane\" must be an int!')
+    elif plane < 0 or plane > sNumPlanes:
+        raise ValueError(funcName + ': valid range of \"plane\" is [0, {})!'.format(sNumPlanes))
+    
+    # Process
+    return core.std.ShufflePlanes(clip, plane, vs.GRAY)
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GrayScale()
+################################################################################################################################
+## Convert the give clip to gray-scale.
+################################################################################################################################
+## Parameters
+##     clip {clip}: the source clip
+##         can be of any constant format
+##     matrix {int|str}: for RGB input only, same as the one in ToYUV()
+################################################################################################################################
+def GrayScale(clip, matrix=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'GrayScale'
+    
+    if not isinstance(clip, vs.VideoNode):
+        raise TypeError(funcName + ': \"clip\" must be a clip!')
+    
+    # Get properties of input clip
+    sFormat = clip.format
+    
+    sColorFamily = sFormat.color_family
+    sIsRGB = sColorFamily == vs.RGB
+    sIsYUV = sColorFamily == vs.YUV
+    sIsGRAY = sColorFamily == vs.GRAY
+    sIsYCOCG = sColorFamily == vs.YCOCG
+    if sColorFamily == vs.COMPAT:
+        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
+    
+    # Process
+    if sIsGRAY:
+        pass
+    elif sIsRGB:
+        clip = ToYUV(clip, matrix=matrix, full=True)
+        clip = core.std.ShufflePlanes(clip, [0,0,0], sColorFamily)
+    else:
+        blank = clip.std.BlankClip()
+        clip = core.std.ShufflePlanes([clip,blank,blank], [0,1,2], sColorFamily)
+    
+    # Output
     return clip
 ################################################################################################################################
 
