@@ -45,6 +45,7 @@
 ##     PlaneAverage
 ##     GetPlane
 ##     GrayScale
+##     Preview
 ################################################################################################################################
 
 
@@ -294,6 +295,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB.
 ## It's mainly a wrapper for fmtconv.
 ## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
+## It's recommended to use Preview() for previewing now.
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -2364,19 +2366,19 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
             matrix = 0 if id else "RGB"
         elif matrix == 1 or matrix == "709" or matrix == "bt709": # bt709
             matrix = 1 if id else "709"
-        elif matrix == 2 or matrix == "unspecified": # Unspecified
+        elif matrix == 2 or matrix == "unspecified" or matrix == "unspec": # Unspecified
             matrix = 2 if id else "Unspecified"
         elif matrix == 4 or matrix == "fcc": # fcc
             matrix = 4 if id else "FCC"
-        elif matrix == 5 or matrix == "bt470bg": # bt470bg
+        elif matrix == 5 or matrix == "bt470bg" or matrix == "470bg": # bt470bg
             matrix = 5 if id else "601"
-        elif matrix == 6 or matrix == "601" or matrix == "smpte170m": # smpte170m
+        elif matrix == 6 or matrix == "601" or matrix == "smpte170m" or matrix == "170m": # smpte170m
             matrix = 6 if id else "601"
         elif matrix == 7 or matrix == "240" or matrix == "smpte240m": # smpte240m
             matrix = 7 if id else "240"
         elif matrix == 8 or matrix == "ycgco" or matrix == "ycocg": # YCgCo
             matrix = 8 if id else "YCgCo"
-        elif matrix == 9 or matrix == "2020" or matrix == "bt2020nc": # bt2020nc
+        elif matrix == 9 or matrix == "2020" or matrix == "bt2020nc" or matrix == "2020ncl": # bt2020nc
             matrix = 9 if id else "2020"
         elif matrix == 10 or matrix == "2020cl" or matrix == "bt2020c": # bt2020c
             matrix = 10 if id else "2020cl"
@@ -2544,7 +2546,7 @@ def GetPlane(clip, plane=None):
 ################################################################################################################################
 ## Helper function: GrayScale()
 ################################################################################################################################
-## Convert the give clip to gray-scale.
+## Convert the given clip to gray-scale.
 ################################################################################################################################
 ## Parameters
 ##     clip {clip}: the source clip
@@ -2579,6 +2581,75 @@ def GrayScale(clip, matrix=None):
     else:
         blank = clip.std.BlankClip()
         clip = core.std.ShufflePlanes([clip,blank,blank], [0,1,2], sColorFamily)
+    
+    # Output
+    return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: Preview()
+################################################################################################################################
+## Convert the given clip or clips to the same RGB format.
+## When multiple clips is given, they will be interleaved together, and resized to the same dimension using "Catmull-Rom".
+################################################################################################################################
+## Set "plane" if you want to output a specific plane.
+## Set compat=True for COMPATBGR32 format output, usually used for VirtualDub, AvsPmod, etc.
+################################################################################################################################
+## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
+## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
+## "matrix" is passed to GetMatrix(id=True) first.
+## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
+################################################################################################################################
+def Preview(clips, plane=None, compat=None, matrix=None, full=None, depth=None,\
+dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
+    # Set VS core and function name
+    core = vs.get_core()
+    funcName = 'Preview'
+    
+    if isinstance(clips, vs.VideoNode):
+        ref = clips
+    elif isinstance(clips, list):
+        for c in clips:
+            if not isinstance(c, vs.VideoNode):
+                raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
+        ref = clips[0]
+    else:
+        raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
+    
+    # Get properties of output clip
+    if compat:
+        dFormat = vs.COMPATBGR32
+    else:
+        if depth is None:
+            depth = 8
+        elif not isinstance(depth, int):
+            raise TypeError(funcName + ': \"depth\" must be an int!')
+        if depth >= 32:
+            sample = vs.FLOAT
+        else:
+            sample = vs.INTEGER
+        dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
+    
+    # Parameters
+    if kernel is None:
+        kernel = "bicubic"
+        if a1 is None and a2 is None:
+            a1 = 0
+            a2 = 0.5
+    
+    # Conversion
+    def _Conv(clip):
+        if plane is not None:
+            clip = GetPlane(clip, plane)
+        return core.resize.Bicubic(clip, ref.width, ref.height, format=dFormat, matrix_in=GetMatrix(clip, matrix, True, True), range_in=full, filter_param_a=0, filter_param_b=0.5, resample_filter_uv=kernel, filter_param_a_uv=a1, filter_param_b_uv=a2, dither_type=dither, prefer_props=prefer_props)
+    
+    if isinstance(clips, vs.VideoNode):
+        clip = _Conv(clips)
+    elif isinstance(clips, list):
+        for i in range(len(clips)):
+            clips[i] = _Conv(clips[i])
+        clip = core.std.Interleave(clips)
     
     # Output
     return clip
