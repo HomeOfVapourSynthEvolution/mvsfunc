@@ -78,7 +78,8 @@ VSMaxPlaneNum = 3
 ################################################################################################################################
 ## Main function: Depth()
 ################################################################################################################################
-## Bit depth conversion with dithering
+## Bit depth conversion with dithering (if needed).
+## It's a wrapper for fmtc.bitdepth and zDepth(core.resize/zimg).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -89,37 +90,30 @@ VSMaxPlaneNum = 3
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     fulls {bool}: define if input clip is of full range
-##         the frame property '_ColorRange' will be overwritten if this argument is not None
 ##         default: None, assume True for RGB/YCgCo input, assume False for Gray/YUV input
 ##     fulld {bool}: define if output clip is of full range
-##         the frame property '_ColorRange' will be overwritten by it
 ##         default is the same as "fulls"
 ################################################################################################################################
 ## Advanced parameters
 ##     dither {int|str}: dithering algorithm applied for depth conversion
-##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using z.Depth
-##         - {str}: same as "dither" in z.Depth, will be automatically converted if using fmtc.bitdepth
+##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using zDepth
+##         - {str}: same as "dither" in zDepth, will be automatically converted if using fmtc.bitdepth
 ##         - default:
 ##             - output depth is 32, and conversions without quantization error: 1 | "none"
 ##             - otherwise: 3 | "error_diffusion"
-##     useZ {bool}: force using of z.Depth or fmtc.bitdepth for depth conversion
-##         By default, z.Depth is used when full range integer is involved.
-##             Full range definition is [0, (1 << depth) - 1] for z.Depth and [0, 1 << depth] for fmtc.bitdepth.
-##             The standard definition is [0, (1 << depth) - 1] thus z.Depth is preferred in this case.
-##             Though it can be weird for full range chroma, which is [0.5, 1 << (depth - 1), (1 << depth) - 0.5].
-##         When 13-,15-bit integer or 16-bit float is involved, z.Depth is always used.
-##         - None: automatically determined
-##         - False: force fmtc.bitdepth
-##         - True: force z.Depth
-##         default: None
+##     useZ {bool}: prefer zDepth or fmtc.bitdepth for depth conversion
+##         When 13-,15-bit integer or 16-bit float is involved, zDepth is always used.
+##         - False: prefer fmtc.bitdepth
+##         - True: prefer zDepth
+##         default: False
 ##     prefer_props {bool}: determines whether frame properties or arguments take precedence when both are present
-##         For now, it only makes sense when core.resize(zimg) is involved and only affects the _ColorRange property.
+##         For now, it only makes sense when zDepth is involved and only affects the _ColorRange property.
 ##         - False: prefer arguments
 ##         - True: prefer frame properties
 ##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
-##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using z.Depth
+##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using zDepth
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
@@ -150,7 +144,6 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     if fulls is None:
         # If not set, assume limited range for YUV and Gray input
         fulls = False if sIsYUV or sIsGRAY else True
-        prefer_props_range = True
     elif not isinstance(fulls, int):
         raise TypeError(funcName + ': \"fulls\" must be a bool!')
     
@@ -203,11 +196,10 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
             fulls = False
             fulld = False
     
-    # Whether to use z.Depth or fmtc.bitdepth for conversion
-    # If not set, when full range is involved for integer format, use z.Depth
-    # When 13-,15-bit integer or 16-bit float format is involved, force using z.Depth
+    # Whether to use zDepth or fmtc.bitdepth for conversion
+    # When 13-,15-bit integer or 16-bit float format is involved, force using zDepth
     if useZ is None:
-        useZ = (sSType == vs.INTEGER and fulls) or (dSType == vs.INTEGER and fulld)
+        useZ = False
     elif not isinstance(useZ, int):
         raise TypeError(funcName + ': \"useZ\" must be a bool!')
     if sSType == vs.INTEGER and (sbitPS == 13 or sbitPS == 15):
@@ -279,10 +271,6 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or (fulld == fulls and not prefer_props_range)) and not lowDepth:
         return clip
     
-    # Override frame properties if needed
-    if not prefer_props_range:
-        clip = SetColorSpace(clip, ColorRange=0 if fulls else 1)
-    
     # Apply conversion
     if useZ:
         clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
@@ -303,7 +291,9 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ################################################################################################################################
 ## Convert any color space to full range RGB.
 ## Thus, if input is limited range RGB, it will be converted to full range.
-## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB
+## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB.
+## It's mainly a wrapper for fmtconv.
+## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -415,12 +405,12 @@ compat=None):
         # Apply conversion in the higher one of input and output bit depth
         pbitPS = max(sbitPS, dbitPS)
         # For integer sample type, only 8-, 9-, 10-, 12-, 16-bit is supported by fmtc.matrix
-        if pbitPS == 11:
-            pbitPS = 12
-        elif pbitPS > 12 and pbitPS < 16:
-            pbitPS = 16
         if sHSubS != 1 or sVSubS != 1:
             # When chroma re-sampling is needed, always process in 16-bit for integer sample type
+            pbitPS = 16
+        elif pbitPS == 11:
+            pbitPS = 12
+        elif pbitPS > 12 and pbitPS < 16:
             pbitPS = 16
     
     # fmtc.resample parameters
@@ -443,11 +433,12 @@ compat=None):
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
     else:
-        # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply chroma up-sampling if needed
         if sHSubS != 1 or sVSubS != 1:
-            clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
+            clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace, flt=pSType==vs.FLOAT)
+        # Apply depth conversion for processed clip
+        else:
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Apply matrix conversion for YUV or YCoCg input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
@@ -473,7 +464,9 @@ compat=None):
 ## Convert any color space to YUV/YCoCg with/without sub-sampling.
 ## If input is RGB, it's assumed to be of full range.
 ##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
-## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB
+## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB.
+## It's mainly a wrapper for fmtconv.
+## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -684,7 +677,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Main function: BM3D()
 ################################################################################################################################
-## A wrap function for BM3D/V-BM3D denoising filter
+## A wrap function for BM3D/V-BM3D denoising filter.
 ## The BM3D filtering is always done in 16-bit int or 32-bit float opponent(OPP) color space internally.
 ## It can automatically convert any input color space to OPP and convert it back after filtering.
 ## Alternatively, you can specify "output" to force outputting RGB or OPP, and "css" to change chroma subsampling.
@@ -2410,6 +2403,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ## Helper function: zDepth()
 ################################################################################################################################
 ## Smart function to utilize zimg depth conversion for both 1.0 and 2.0 API of vszimg as well as core.resize.
+## core.resize is preferred now.
 ################################################################################################################################
 def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None, prefer_props=None):
     # Set VS core and function name
