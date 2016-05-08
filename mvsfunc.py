@@ -57,7 +57,7 @@ import math
 ################################################################################################################################
 
 
-MvsFuncVersion = 7
+MvsFuncVersion = 8
 VSMaxPlaneNum = 3
 
 
@@ -81,6 +81,7 @@ VSMaxPlaneNum = 3
 ################################################################################################################################
 ## Bit depth conversion with dithering (if needed).
 ## It's a wrapper for fmtc.bitdepth and zDepth(core.resize/zimg).
+## Only constant format is supported, frame properties of the input clip is mostly ignored (only zDepth is able to use it).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
@@ -277,6 +278,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
         clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
+        clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     
     # Low-depth support
     if lowDepth:
@@ -294,6 +296,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ## Thus, if input is limited range RGB, it will be converted to full range.
 ## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB.
 ## It's mainly a wrapper for fmtconv.
+## Only constant format is supported, frame properties of the input clip is mostly ignored.
 ## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ## It's recommended to use Preview() for previewing now.
 ################################################################################################################################
@@ -434,6 +437,8 @@ compat=None):
         clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
+        # Set output frame properties
+        clip = SetColorSpace(clip, Matrix=0)
     else:
         # Apply chroma up-sampling if needed
         if sHSubS != 1 or sVSubS != 1:
@@ -468,6 +473,7 @@ compat=None):
 ##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
 ## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB.
 ## It's mainly a wrapper for fmtconv.
+## Only constant format is supported, frame properties of the input clip is mostly ignored.
 ## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ################################################################################################################################
 ## Basic parameters
@@ -1850,7 +1856,7 @@ def PointPower(clip, vpow=None, hpow=None):
             clip = core.std.Interleave([clip, clip]).std.DoubleWeave(True).std.SelectEvery(2, 0)
     
     # Output
-    return clip
+    return AssumeFrame(clip)
 ################################################################################################################################
 
 
