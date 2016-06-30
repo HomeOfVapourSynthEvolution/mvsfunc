@@ -3043,26 +3043,39 @@ def _limit_filter_expr(defref, thr, elast, largen_thr, value_range):
         limitExpr = " {src} ".format(src=src)
     elif thr >= value_range and largen_thr >= value_range:
         limitExpr = ""
-    elif elast <= 1:
-        limitExpr = " {dif_abs} {thr} <= {flt} {src} ? "
     else:
-        thr_1 = thr
-        thr_2 = thr * elast
-        thr_slope = 1 / (thr_2 - thr_1)
-        # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
-        limitExpr = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
-        limitExpr = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExpr + " ? ? "
-        limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
-        
-        if largen_thr != thr:
-            thr_1 = largen_thr
-            thr_2 = largen_thr * elast
+        if thr <= 0:
+            limitExpr = " {src} ".format(src=src)
+        elif thr >= value_range:
+            limitExpr = " {flt} ".format(flt=flt)
+        elif elast <= 1:
+            limitExpr = " {dif_abs} {thr} <= {flt} {src} ? ".format(dif_abs=dif_abs, thr=thr, flt=flt, src=src)
+        else:
+            thr_1 = thr
+            thr_2 = thr * elast
             thr_slope = 1 / (thr_2 - thr_1)
             # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
-            limitExprLargen = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
-            limitExprLargen = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExprLargen + " ? ? "
+            limitExpr = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+            limitExpr = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExpr + " ? ? "
+            limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
+        
+        if largen_thr != thr:
+            if largen_thr <= 0:
+                limitExprLargen = " {src} ".format(src=src)
+            elif largen_thr >= value_range:
+                limitExprLargen = " {flt} ".format(flt=flt)
+            elif elast <= 1:
+                limitExprLargen = " {dif_abs} {thr} <= {flt} {src} ? ".format(dif_abs=dif_abs, thr=largen_thr, flt=flt, src=src)
+            else:
+                thr_1 = largen_thr
+                thr_2 = largen_thr * elast
+                thr_slope = 1 / (thr_2 - thr_1)
+                # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
+                limitExprLargen = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+                limitExprLargen = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExprLargen + " ? ? "
+                limitExprLargen = limitExprLargen.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
             limitExpr = " {flt} {ref} > " + limitExprLargen + " " + limitExpr + " ? "
-            limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src, ref=ref)
+            limitExpr = limitExpr.format(flt=flt, ref=ref)
     
     return limitExpr
 ################################################################################################################################
@@ -3147,7 +3160,6 @@ def _limit_diff_lut(diff, thr, elast, largen_thr, planes):
             dif_abs = abs(dif)
             thr_1 = largen_thr if dif > 0 else thr
             thr_2 = thr_1 * elast
-            thr_slope = 1 / (thr_2 - thr_1)
             
             if dif_abs <= thr_1:
                 return neutral
@@ -3155,6 +3167,7 @@ def _limit_diff_lut(diff, thr, elast, largen_thr, planes):
                 return x
             else:
                 # final = flt - dif * (dif_abs - thr_1) / (thr_2 - thr_1)
+                thr_slope = 1 / (thr_2 - thr_1)
                 return round(dif * (dif_abs - thr_1) * thr_slope + neutral)
         return core.std.Lut(diff, planes=planes, function=limitLut)
 ################################################################################################################################
