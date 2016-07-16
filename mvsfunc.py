@@ -174,6 +174,10 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -377,6 +381,7 @@ compat=None):
         raise TypeError(funcName + ': \"compat\" must be an int!')
     if compat:
         depth = 8
+        sample = vs.INTEGER
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
@@ -394,6 +399,10 @@ compat=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -575,6 +584,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
@@ -949,6 +962,10 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
     else:
         dSType = sample
+    if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
+        dbitPS = 32
+    elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
+        dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
         raise ValueError(funcName + ': {0}-bit integer output is not supported!'.format(dbitPS))
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
