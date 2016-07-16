@@ -2622,6 +2622,7 @@ def GrayScale(clip, matrix=None):
 ## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
 ## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
 ## "matrix" is passed to GetMatrix(id=True) first.
+## default dither: random
 ## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 def Preview(clips, plane=None, compat=None, matrix=None, full=None, depth=None,\
@@ -2655,6 +2656,8 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
         dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
     
     # Parameters
+    if dither is None:
+        dither = "random"
     if kernel is None:
         kernel = "bicubic"
         if a1 is None and a2 is None:
