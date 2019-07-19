@@ -1157,8 +1157,8 @@ def VFRSplice(clips, tcfile=None, v2=None, precision=None):
                 tc_list[index - 1] = (tc_list[index - 1][0], cur_frame + clip.num_frames - 1, clip.fps_num, clip.fps_den)
             else:
                 tc_list.append((cur_frame, cur_frame + clip.num_frames - 1, clip.fps_num, clip.fps_den))
+                index += 1
             cur_frame += clip.num_frames
-            index += 1
         
         # Write to timecode file
         ofile = open(tcfile, 'w')
