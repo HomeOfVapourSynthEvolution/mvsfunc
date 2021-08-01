@@ -1244,11 +1244,12 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
             expr = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
             return core.std.Expr(clip, expr, floatFormat.id)
         ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=clipPlane), clip)'''
-        def _PlaneADFrame(n, f, clip):
+        '''def _PlaneADFrame(n, f, clip):
             mean = f.props.PlaneMean * valueRange
             expr = "x {mean} - abs".format(mean=mean)
             return core.std.Expr(clip, expr)
-        ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
+        ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)'''
+        ADclip = core.akarin.Expr([clipPlane, clip], f'x y.PlaneMean {valueRange} * - abs')
         ADclip = PlaneAverage(ADclip, 0, "PlaneMAD")
         
         def _PlaneMADTransfer(n, f):
@@ -1259,11 +1260,12 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     
     # Plane Var (variance) and STD (standard deviation)
     if var or std:
-        def _PlaneSDFrame(n, f, clip):
+        '''def _PlaneSDFrame(n, f, clip):
             mean = f.props.PlaneMean * valueRange
             expr = "x {mean} - dup *".format(mean=mean)
             return core.std.Expr(clip, expr, floatFormat.id)
-        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
+        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)'''
+        SDclip = core.akarin.Expr([clipPlane, clip], f'x y.PlaneMean {valueRange} * - dup *', format=floatFormat.id)
         SDclip = PlaneAverage(SDclip, 0, "PlaneVar")
         
         def _PlaneVarSTDTransfer(n, f):
