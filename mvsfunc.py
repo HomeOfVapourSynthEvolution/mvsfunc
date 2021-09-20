@@ -208,7 +208,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
         raise TypeError(funcName + ': \"useZ\" must be a bool!')
     if sSType == vs.INTEGER and (sbitPS == 13 or sbitPS == 15):
         useZ = True
-    if dSType == vs.INTEGER and (dbitPS == 13 or dbitPS == 15):
+    if dSType == vs.INTEGER and (dbitPS == 11 or 13 <= dbitPS <= 15):
         useZ = True
     if (sSType == vs.FLOAT and sbitPS < 32) or (dSType == vs.FLOAT and dbitPS < 32):
         useZ = True
