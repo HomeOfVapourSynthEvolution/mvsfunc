@@ -116,7 +116,7 @@ VSMaxPlaneNum = 3
 ##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
-##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using zDepth
+##     ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane: same as those in fmtc.bitdepth, ignored when useZ
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
