@@ -119,7 +119,8 @@ VSMaxPlaneNum = 3
 ##     ampo, ampn, dyn, staticnoise: same as those in fmtc.bitdepth, ignored when using zDepth
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
-dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None):
+dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
     # Set VS core and function name
     core = vs.core
     funcName = 'Depth'
@@ -237,7 +238,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
             if dither != "none" and dither != "ordered" and dither != "random" and dither != "error_diffusion":
                 raise ValueError(funcName + ': Unsupported \"dither\" specified!')
         else:
-            if dither < 0 or dither > 7:
+            if dither < 0 or dither > 9:
                 raise ValueError(funcName + ': Unsupported \"dither\" specified!')
         if useZ and isinstance(dither, int):
             if dither == 0:
@@ -279,7 +280,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     if useZ:
         clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
     else:
-        clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise)
+        clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise, cpuopt=cpuopt, patsize=patsize, tpdfo=tpdfo, tpdfn=tpdfn, corplane=corplane)
         clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     
     # Low-depth support
