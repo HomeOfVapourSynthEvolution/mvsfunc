@@ -748,7 +748,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default is the same as that of the input clip
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
