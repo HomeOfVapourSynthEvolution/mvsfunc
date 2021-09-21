@@ -319,7 +319,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -329,6 +329,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
 kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.core
@@ -427,10 +428,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if sIsRGB:
         # Skip matrix conversion for RGB input
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
         # Set output frame properties
@@ -441,7 +442,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace, flt=pSType==vs.FLOAT)
         # Apply depth conversion for processed clip
         else:
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         # Apply matrix conversion for YUV input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
@@ -451,7 +452,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.RGB)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     
     # Output
     return clip
@@ -496,7 +497,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
@@ -506,6 +507,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
 kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.core
@@ -642,13 +644,13 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             # Apply depth conversion for processed clip
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         # Shuffle planes for Gray input
         widthc = input.width // dHSubS
         heightc = input.height // dVSubS
@@ -657,7 +659,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
     else:
         # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
@@ -670,7 +672,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if dHSubS != sHSubS or dVSubS != sVSubS:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulld, fulld=fulld, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     
     # Output
     return clip
@@ -770,6 +772,7 @@ refine=None, pre=None, ref=None, psample=None, \
 matrix=None, full=None, \
 output=None, css=None, depth=None, sample=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
+cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
 cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None, \
 cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None, \
 block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None, \
@@ -964,30 +967,30 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if sIsGRAY:
         onlyY = True
         # Convert Gray input to full range Gray in processed format
-        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         if pre is not None:
-            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
         if ref is not None:
-            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     else:
         # Convert input to full range RGB
         clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if pre is not None:
             pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if ref is not None:
             ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         # Convert full range RGB to full range OPP
         clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
-        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if pre is not None:
             pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         if ref is not None:
             ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
         # Convert OPP to Gray if only Y is processed
         srcOPP = clip
         if sigma[1] <= 0 and sigma[2] <= 0:
@@ -1042,7 +1045,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     
     # Convert to output format
     if sIsGRAY:
-        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     else:
         # Shuffle back to YUV if not all planes are processed
         if onlyY:
@@ -1056,14 +1059,14 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         if output <= 1:
             # Convert full range OPP to full range RGB
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
+            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
         else:
             # Depth conversion for RGB or OPP output
-            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
+            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
     
     # Output
     return clip
