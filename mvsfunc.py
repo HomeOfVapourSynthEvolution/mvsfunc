@@ -1244,11 +1244,14 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
             expr = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
             return core.std.Expr(clip, expr, floatFormat.id)
         ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=clipPlane), clip)'''
-        def _PlaneADFrame(n, f, clip):
-            mean = f.props.PlaneMean * valueRange
-            expr = "x {mean} - abs".format(mean=mean)
-            return core.std.Expr(clip, expr)
-        ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
+        if hasattr(core, 'akarin'):
+            ADclip = core.akarin.Expr([clipPlane, clip], f'x y.PlaneMean {valueRange} * - abs')
+        else:
+            def _PlaneADFrame(n, f, clip):
+                mean = f.props.PlaneMean * valueRange
+                expr = "x {mean} - abs".format(mean=mean)
+                return core.std.Expr(clip, expr)
+            ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
         ADclip = PlaneAverage(ADclip, 0, "PlaneMAD")
         
         def _PlaneMADTransfer(n, f):
@@ -1259,11 +1262,14 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     
     # Plane Var (variance) and STD (standard deviation)
     if var or std:
-        def _PlaneSDFrame(n, f, clip):
-            mean = f.props.PlaneMean * valueRange
-            expr = "x {mean} - dup *".format(mean=mean)
-            return core.std.Expr(clip, expr, floatFormat.id)
-        SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
+        if hasattr(core, 'akarin'):
+            SDclip = core.akarin.Expr([clipPlane, clip], f'x y.PlaneMean {valueRange} * - dup *', format=floatFormat.id)
+        else:
+            def _PlaneSDFrame(n, f, clip):
+                mean = f.props.PlaneMean * valueRange
+                expr = "x {mean} - dup *".format(mean=mean)
+                return core.std.Expr(clip, expr, floatFormat.id)
+            SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
         SDclip = PlaneAverage(SDclip, 0, "PlaneVar")
         
         def _PlaneVarSTDTransfer(n, f):
@@ -1395,22 +1401,32 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
         clip1Mean = PlaneAverage(clip1Plane, 0, "PlaneMean")
         clip2Mean = PlaneAverage(clip2Plane, 0, "PlaneMean")
         
-        def _PlaneCoDFrame(n, f, clip1, clip2):
-            mean1 = f[0].props.PlaneMean * valueRange
-            mean2 = f[1].props.PlaneMean * valueRange
-            expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
-            return core.std.Expr([clip1, clip2], expr, floatFormat.id)
-        CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
+        if hasattr(core, 'akarin'):
+            CoDclip = core.akarin.Expr([clip1Plane, clip1Mean, clip2Plane, clip2Mean], f'x y.PlaneMean {valueRange} * - z a.PlaneMean {valueRange} * - *', format=floatFormat.id)
+        else:
+            def _PlaneCoDFrame(n, f, clip1, clip2):
+                mean1 = f[0].props.PlaneMean * valueRange
+                mean2 = f[1].props.PlaneMean * valueRange
+                expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
+                return core.std.Expr([clip1, clip2], expr, floatFormat.id)
+            CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
+
         CoDclip = PlaneAverage(CoDclip, 0, "PlaneCov")
         clips = [clip1, CoDclip]
         
         if corr:
-            def _PlaneSDFrame(n, f, clip):
-                mean = f.props.PlaneMean * valueRange
-                expr = "x {mean} - dup *".format(mean=mean)
-                return core.std.Expr(clip, expr, floatFormat.id)
-            SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
-            SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
+
+            if hasattr(core, 'akarin'):
+                SDclip1 = core.akarin.Expr([clip1Plane, clip1Mean], f'x y.PlaneMean {valueRange} * - dup *', format=floatFormat.id)
+                SDclip2 = core.akarin.Expr([clip2Plane, clip2Mean], f'x y.PlaneMean {valueRange} * - dup *', format=floatFormat.id)
+            else:
+                def _PlaneSDFrame(n, f, clip):
+                    mean = f.props.PlaneMean * valueRange
+                    expr = "x {mean} - dup *".format(mean=mean)
+                    return core.std.Expr(clip, expr, floatFormat.id)
+                SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
+                SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
+
             SDclip1 = PlaneAverage(SDclip1, 0, "PlaneVar")
             SDclip2 = PlaneAverage(SDclip2, 0, "PlaneVar")
             clips.append(SDclip1)
