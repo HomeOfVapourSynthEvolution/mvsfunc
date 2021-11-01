@@ -1,6 +1,5 @@
 ################################################################################################################################
 ## mvsfunc - mawen1250's VapourSynth functions
-## 2016.10
 ################################################################################################################################
 ## Requirments:
 ##     fmtconv
@@ -47,6 +46,7 @@
 ##     GetPlane
 ##     GrayScale
 ##     Preview
+##     CheckColorFamily
 ################################################################################################################################
 
 
@@ -58,7 +58,7 @@ import math
 ################################################################################################################################
 
 
-MvsFuncVersion = 9
+MvsFuncVersion = 10
 VSMaxPlaneNum = 3
 
 
@@ -86,7 +86,7 @@ VSMaxPlaneNum = 3
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
 ##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
@@ -134,12 +134,9 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
     sFormat = input.format
     
     sColorFamily = sFormat.color_family
-    sIsRGB = sColorFamily == vs.RGB
+    CheckColorFamily(sColorFamily)
     sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -307,8 +304,8 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
-##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
+##     matrix {int|str}: color matrix of input clip, only makes sense for YUV input
 ##         decides the conversion coefficients from YUV to RGB
 ##         check GetMatrix() for available values
 ##         default: None, guessed according to the color family and size of input clip
@@ -319,8 +316,6 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ##         default is the same as that of the input clip
 ##     full {bool}: define if input clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
-##     compat {bool}: force CompatBGR32 output, "depth" will be forced to 8
-##         default: False
 ################################################################################################################################
 ## Parameters of depth conversion
 ##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise:
@@ -333,8 +328,7 @@ dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, stati
 ################################################################################################################################
 def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
 dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None, \
-compat=None):
+kernel=None, taps=None, a1=None, a2=None, cplace=None):
     # Set VS core and function name
     core = vs.core
     funcName = 'ToRGB'
@@ -350,12 +344,10 @@ compat=None):
     sFormat = input.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
     sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -366,7 +358,7 @@ compat=None):
     if full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
+        if (sIsGRAY or sIsYUV) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -376,13 +368,6 @@ compat=None):
         fulls = full
     
     # Get properties of output clip
-    if compat is None:
-        compat = False
-    elif not isinstance(compat, int):
-        raise TypeError(funcName + ': \"compat\" must be an int!')
-    if compat:
-        depth = 8
-        sample = vs.INTEGER
     if depth is None:
         dbitPS = sbitPS
     elif not isinstance(depth, int):
@@ -456,7 +441,7 @@ compat=None):
         # Apply depth conversion for processed clip
         else:
             clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
-        # Apply matrix conversion for YUV or YCoCg input
+        # Apply matrix conversion for YUV input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
             clip = SetColorSpace(clip, Matrix=0)
@@ -467,9 +452,6 @@ compat=None):
         # Apply depth conversion for output clip
         clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise)
     
-    if compat:
-        clip = core.resize.Bicubic(clip, format=vs.COMPATBGR32)
-    
     # Output
     return clip
 ################################################################################################################################
@@ -478,7 +460,7 @@ compat=None):
 ################################################################################################################################
 ## Main function: ToYUV()
 ################################################################################################################################
-## Convert any color space to YUV/YCoCg with/without sub-sampling.
+## Convert any color space to YUV with/without sub-sampling.
 ## If input is RGB, it's assumed to be of full range.
 ##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
 ## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB.
@@ -488,7 +470,7 @@ compat=None):
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     matrix {int|str}: color matrix of output clip
 ##         decides the conversion coefficients from RGB to YUV
 ##         check GetMatrix() for available values
@@ -503,13 +485,13 @@ compat=None):
 ##         - "420" | "4:2:0" | "22"
 ##         - "411" | "4:1:1" | "41"
 ##         - "410" | "4:1:0" | "42"
-##         default: 4:4:4 for RGB/Gray input, same as input is for YUV/YCoCg input
+##         default: 4:4:4 for RGB/Gray input, same as input is for YUV input
 ##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
 ##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
 ##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
 ##         default is the same as that of the input clip
-##     full {bool}: define if input/output Gray/YUV/YCoCg clip is of full range
+##     full {bool}: define if input/output Gray/YUV clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
 ################################################################################################################################
 ## Parameters of depth conversion
@@ -539,12 +521,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     sFormat = input.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
     sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -558,7 +538,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     elif full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
+        if (sIsGRAY or sIsYUV) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -600,7 +580,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP":
             fulld = True
         else:
-            fulld = True if sIsYCOCG else False
+            fulld = False
     elif not isinstance(full, int):
         raise TypeError(funcName + ': \"full\" must be a bool!')
     else:
@@ -656,8 +636,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         raise TypeError(funcName + ': \"kernel\" must be a str!')
     
     # Conversion
-    if sIsYUV or sIsYCOCG:
-        # Skip matrix conversion for YUV/YCoCg input
+    if sIsYUV:
+        # Skip matrix conversion for YUV input
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             # Apply depth conversion for processed clip
@@ -684,7 +664,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         elif matrix == "2020cl":
             clip = core.fmtc.matrix2020cl(clip, full=fulld)
         else:
-            clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.YCOCG if matrix == "YCgCo" else vs.YUV)
+            clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.YUV)
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulld, fulld=fulld, cplace=cplace)
@@ -708,7 +688,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be filtered
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     sigma {float[]}: same as "sigma" in BM3D, used for both basic estimate and final estimate
 ##         the strength of filtering, should be carefully adjusted according to the noise
 ##         set 0 to disable the filtering of corresponding plane
@@ -743,7 +723,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         default: 1
 ################################################################################################################################
 ## Parameters of input properties
-##     matrix {int|str}: color matrix of input clip, only makes sense for YUV/YCoCg input
+##     matrix {int|str}: color matrix of input clip, only makes sense for YUV input
 ##         check GetMatrix() for available values
 ##         default: guessed according to the color family and size of input clip
 ##     full {bool}: define if input clip is of full range
@@ -755,7 +735,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##         - 1: full range RGB (converted from input clip)
 ##         - 2: full range OPP (converted from full range RGB, the color space where the filtering takes place)
 ##         default: 0
-##     css {str}: chroma subsampling of output clip, only valid when output=0 and input clip is YUV/YCoCg
+##     css {str}: chroma subsampling of output clip, only valid when output=0 and input clip is YUV
 ##         check ToYUV() for available values
 ##         default is the same as that of the input clip
 ##     depth {int}: bit depth of output clip, can be 1-16 for integer or 16/32 for float
@@ -808,12 +788,10 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     sFormat = input.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
     sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -824,7 +802,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if full is None:
         # If not set, assume limited range for YUV and Gray input
         # Assume full range for YCgCo and OPP input
-        if (sIsGRAY or sIsYUV or sIsYCOCG) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
+        if (sIsGRAY or sIsYUV) and (matrix == "RGB" or matrix == "YCgCo" or matrix == "OPP"):
             fulls = True
         else:
             fulls = False if sIsYUV or sIsGRAY else True
@@ -979,7 +957,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
         fulld = True
     
     # Convert to processed format
-    # YUV/YCoCg/RGB input is converted to opponent color space as full range YUV
+    # YUV/RGB input is converted to opponent color space as full range YUV
     # Gray input is converted to full range Gray
     onlyY = False
     if sIsGRAY:
@@ -1079,7 +1057,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
             dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
         if output <= 0 and not sIsRGB:
-            # Convert full range RGB to YUV/YCoCg
+            # Convert full range RGB to YUV
             clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
             dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
         else:
@@ -1211,7 +1189,7 @@ def VFRSplice(clips, tcfile=None, v2=None, precision=None):
 ################################################################################################################################
 ## Basic parameters
 ##     clip {clip}: clip to be evaluated
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 32 bit float
 ##     plane {int}: specify which plane to evaluate
 ##         default: 0
 ##     mean {bool}: whether to calculate mean
@@ -1332,7 +1310,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
 ################################################################################################################################
 ## Basic parameters
 ##     clip1 {clip}: the first clip to be evaluated, will be copied to output
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 32 bit float
 ##     clip2 {clip}: the second clip, to be compared with the first one
 ##         must be of the same format and dimension as the "clip1"
 ##     plane {int}: specify which plane to evaluate
@@ -1460,7 +1438,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
 ################################################################################################################################
 ## Basic parameters
 ##     clip {clip}: clip to be evaluated
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ################################################################################################################################
 ## Advanced parameters
 ##     alignment {int}: same as the one in text.Text()
@@ -1478,15 +1456,15 @@ def ShowAverage(clip, alignment=None):
     sFormat = clip.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsYUV = sColorFamily == vs.YUV
-    sIsYCOCG = sColorFamily == vs.YCOCG
     
     sSType = sFormat.sample_type
     sbitPS = sFormat.bits_per_sample
     sNumPlanes = sFormat.num_planes
     
     valueRange = (1 << sbitPS) - 1 if sSType == vs.INTEGER else 1
-    offset = [0, -0.5, -0.5] if sSType == vs.FLOAT and (sIsYUV or sIsYCOCG) else [0, 0, 0]
+    offset = [0, -0.5, -0.5] if sSType == vs.FLOAT and sIsYUV else [0, 0, 0]
     
     # Process and output
     def _ShowAverageFrame(n, f):
@@ -1609,14 +1587,14 @@ def FilterCombed(src, flt, props=None):
 ################################################################################################################################
 ## Basic parameters
 ##     clip1 {clip}: the first clip
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     clip2 {clip}: the second clip
 ##         must be of the same format and dimension as "clip1"
 ##     mode {int[]}: specify processing mode for each plane
 ##         - 0: don't process, copy "clip1" to output
 ##         - 1: normal minimum, output = min(clip1, clip2)
 ##         - 2: difference minimum, output = abs(clip2 - neutral) < abs(clip1 - neutral) ? clip2 : clip1
-##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+##         default: [1,1,1] for YUV/RGB input, [1] for Gray input
 ################################################################################################################################
 ## Advanced parameters
 ##     neutral {int|float}: specfy the neutral value used for mode=2
@@ -1635,14 +1613,14 @@ def Min(clip1, clip2, mode=None, neutral=None):
 ################################################################################################################################
 ## Basic parameters
 ##     clip1 {clip}: the first clip
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     clip2 {clip}: the second clip
 ##         must be of the same format and dimension as "clip1"
 ##     mode {int[]}: specify processing mode for each plane
 ##         - 0: don't process, copy "clip1" to output
 ##         - 1: normal maximum, output = max(clip1, clip2)
 ##         - 2: difference maximum, output = abs(clip2 - neutral) > abs(clip1 - neutral) ? clip2 : clip1
-##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+##         default: [1,1,1] for YUV/RGB input, [1] for Gray input
 ################################################################################################################################
 ## Advanced parameters
 ##     neutral {int|float}: specfy the neutral value used for mode=2
@@ -1660,13 +1638,13 @@ def Max(clip1, clip2, mode=None, neutral=None):
 ################################################################################################################################
 ## Basic parameters
 ##     clip1 {clip}: the first clip
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     clip2 {clip}: the second clip
 ##         must be of the same format and dimension as "clip1"
 ##     mode {int[]}: specify processing mode for each plane
 ##         - 0: don't process, copy "clip1" to output
 ##         - 1: average, output = (clip1 + clip2) / 2
-##         default: [1,1,1] for YUV/RGB/YCoCg input, [1] for Gray input
+##         default: [1,1,1] for YUV/RGB input, [1] for Gray input
 ################################################################################################################################
 def Avg(clip1, clip2, mode=None):
     return _operator2(clip1, clip2, mode, None, 'Avg')
@@ -1680,14 +1658,14 @@ def Avg(clip1, clip2, mode=None):
 ################################################################################################################################
 ## Basic parameters
 ##     src {clip}: source clip
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     flt1 {clip}: filtered clip 1
 ##         must be of the same format and dimension as "src"
 ##     flt2 {clip}: filtered clip 2
 ##         must be of the same format and dimension as "src"
 ##     planes {int[]}: specify which planes to process
 ##         unprocessed planes will be copied from "src"
-##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+##         default: all planes will be processed, [0,1,2] for YUV/RGB input, [0] for Gray input
 ################################################################################################################################
 def MinFilter(src, flt1, flt2, planes=None):
     return _min_max_filter(src, flt1, flt2, planes, 'MinFilter')
@@ -1701,14 +1679,14 @@ def MinFilter(src, flt1, flt2, planes=None):
 ################################################################################################################################
 ## Basic parameters
 ##     src {clip}: source clip
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     flt1 {clip}: filtered clip 1
 ##         must be of the same format and dimension as "src"
 ##     flt2 {clip}: filtered clip 2
 ##         must be of the same format and dimension as "src"
 ##     planes {int[]}: specify which planes to process
 ##         unprocessed planes will be copied from "src"
-##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+##         default: all planes will be processed, [0,1,2] for YUV/RGB input, [0] for Gray input
 ################################################################################################################################
 def MaxFilter(src, flt1, flt2, planes=None):
     return _min_max_filter(src, flt1, flt2, planes, 'MaxFilter')
@@ -1748,7 +1726,7 @@ def MaxFilter(src, flt1, flt2, planes=None):
 ################################################################################################################################
 ## Basic parameters
 ##     flt {clip}: filtered clip, to compute the filtering diff
-##         can be of YUV/RGB/Gray/YCoCg color family, can be of 8-16 bit integer or 16/32 bit float
+##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
 ##     src {clip}: source clip, to apply the filtering diff
 ##         must be of the same format and dimension as "flt"
 ##     ref {clip} (optional): reference clip, to compute the weight to be applied on filtering diff
@@ -1760,7 +1738,7 @@ def MaxFilter(src, flt1, flt2, planes=None):
 ##         default: 2.0
 ##     planes {int[]}: specify which planes to process
 ##         unprocessed planes will be copied from "flt"
-##         default: all planes will be processed, [0,1,2] for YUV/RGB/YCoCg input, [0] for Gray input
+##         default: all planes will be processed, [0,1,2] for YUV/RGB input, [0] for Gray input
 ################################################################################################################################
 ## Advanced parameters
 ##     brighten_thr {float}: threshold (8-bit scale) for filtering diff that brightening the image (Y/R/G/B plane)
@@ -1799,8 +1777,8 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
             raise ValueError(funcName + ': \"flt\" and \"ref\" must be of the same width and height!')
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsYUV = sColorFamily == vs.YUV
-    sIsYCOCG = sColorFamily == vs.YCOCG
     
     sSType = sFormat.sample_type
     sbitPS = sFormat.bits_per_sample
@@ -1867,13 +1845,13 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
     
     # Process
     if thr <= 0 and brighten_thr <= 0:
-        if sIsYUV or sIsYCOCG:
+        if sIsYUV:
             if thrc <= 0:
                 return src
         else:
             return src
     if thr >= 255 and brighten_thr >= 255:
-        if sIsYUV or sIsYCOCG:
+        if sIsYUV:
             if thrc >= 255:
                 return flt
         else:
@@ -1888,7 +1866,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         expr = []
         for i in range(sNumPlanes):
             if process[i]:
-                if i > 0 and (sIsYUV or sIsYCOCG):
+                if i > 0 and (sIsYUV):
                     expr.append(limitExprC)
                 else:
                     expr.append(limitExprY)
@@ -1901,7 +1879,7 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
             clip = core.std.Expr([flt, src, ref], expr)
     else: # implementation with std.MakeDiff, std.Lut and std.MergeDiff
         diff = core.std.MakeDiff(flt, src, planes=planes)
-        if sIsYUV or sIsYCOCG:
+        if sIsYUV:
             if process[0]:
                 diff = _limit_diff_lut(diff, thr, elast, brighten_thr, [0])
             if process[1] or process[2]:
@@ -1986,11 +1964,11 @@ def PointPower(clip, vpow=None, hpow=None):
 ################################################################################################################################
 ## Basic parameters
 ##     clip {clip}: clip to evaluate
-##         must be of YUV or YCoCg color family
+##         must be of YUV color family
 ##     matrices {str[]}: specify a (list of) matrix to test
 ##         default: ['601', '709', '2020', '240', 'FCC', 'YCgCo']
 ##     full {bool}: define if input clip is of full range
-##         default: False for YUV input, True for YCoCg input
+##         default: False for YUV input
 ##     lower {float}: lower boundary for valid range (inclusive)
 ##         default: -0.02
 ##     upper {float}: upper boundary for valid range (inclusive)
@@ -2008,14 +1986,7 @@ def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
     sFormat = clip.format
     
     sColorFamily = sFormat.color_family
-    sIsRGB = sColorFamily == vs.RGB
-    sIsYUV = sColorFamily == vs.YUV
-    sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
-    if not (sIsYUV or sIsYCOCG):
-        raise ValueError(funcName + ': only YUV or YCoCg color family is allowed!')
+    CheckColorFamily(sColorFamily, ('YUV'))
     
     # Parameters
     if matrices is None:
@@ -2024,7 +1995,7 @@ def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
         raise TypeError(funcName + ': \'matrices\' must be a (list of) str!')
     
     if full is None:
-        full = sIsYCOCG
+        full = False
     elif not isinstance(full, int):
         raise TypeError(funcName + ': \'full\' must be a bool!')
     
@@ -2442,12 +2413,8 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     sFormat = clip.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
-    sIsYUV = sColorFamily == vs.YUV
-    sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     # Get properties of output clip
     if dIsRGB is None:
@@ -2511,8 +2478,6 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     if matrix == 2 or matrix == "Unspecified":
         if dIsRGB and sIsRGB:
             matrix = 0 if id else "RGB"
-        elif sIsYCOCG:
-            matrix = 8 if id else "YCgCo"
         else:
             matrix = (6 if id else "601") if SD else (9 if id else "2020") if UHD else (1 if id else "709")
     
@@ -2685,12 +2650,9 @@ def GrayScale(clip, matrix=None):
     sFormat = clip.format
     
     sColorFamily = sFormat.color_family
+    CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
-    sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     # Process
     if sIsGRAY:
@@ -2714,7 +2676,6 @@ def GrayScale(clip, matrix=None):
 ## When multiple clips is given, they will be interleaved together, and resized to the same dimension using "Catmull-Rom".
 ################################################################################################################################
 ## Set "plane" if you want to output a specific plane.
-## Set compat=True for COMPATBGR32 format output, usually used for VirtualDub, AvsPmod, etc.
 ################################################################################################################################
 ## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
 ## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
@@ -2722,7 +2683,7 @@ def GrayScale(clip, matrix=None):
 ## default dither: random
 ## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
-def Preview(clips, plane=None, compat=None, matrix=None, full=None, depth=None,\
+def Preview(clips, plane=None, matrix=None, full=None, depth=None,\
 dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
     # Set VS core and function name
     core = vs.core
@@ -2739,18 +2700,15 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
         raise TypeError(funcName + ': \"clips\" must be a clip or a list of clips!')
     
     # Get properties of output clip
-    if compat:
-        dFormat = vs.COMPATBGR32
+    if depth is None:
+        depth = 8
+    elif not isinstance(depth, int):
+        raise TypeError(funcName + ': \"depth\" must be an int!')
+    if depth >= 32:
+        sample = vs.FLOAT
     else:
-        if depth is None:
-            depth = 8
-        elif not isinstance(depth, int):
-            raise TypeError(funcName + ': \"depth\" must be an int!')
-        if depth >= 32:
-            sample = vs.FLOAT
-        else:
-            sample = vs.INTEGER
-        dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
+        sample = vs.INTEGER
+    dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
     
     # Parameters
     if dither is None:
@@ -2776,6 +2734,25 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
     
     # Output
     return clip
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: CheckColorFamily()
+################################################################################################################################
+def CheckColorFamily(color_family, valid_list=None, invalid_list=None):
+    if valid_list is None:
+        valid_list = ('RGB', 'YUV', 'GRAY')
+    if invalid_list is None:
+        invalid_list = ('COMPAT', 'UNDEFINED')
+    # check invalid list
+    for cf in invalid_list:
+        if color_family == getattr(vs, cf, None):
+            raise ValueError(f'color family *{cf}* is not supported!')
+    # check valid list
+    if valid_list:
+        if color_family not in [getattr(vs, cf, None) for cf in valid_list]:
+            raise ValueError(f'color family not supported, only {valid_list} are accepted')
 ################################################################################################################################
 
 
@@ -2855,12 +2832,9 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     sFormat = clip.format
     
     sColorFamily = sFormat.color_family
-    sIsRGB = sColorFamily == vs.RGB
+    CheckColorFamily(sColorFamily)
     sIsYUV = sColorFamily == vs.YUV
     sIsGRAY = sColorFamily == vs.GRAY
-    sIsYCOCG = sColorFamily == vs.YCOCG
-    if sColorFamily == vs.COMPAT:
-        raise ValueError(funcName + ': color family *COMPAT* is not supported!')
     
     sbitPS = sFormat.bits_per_sample
     sSType = sFormat.sample_type
@@ -2970,7 +2944,7 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     Yexpr = gen_expr(False, mode)
     Cexpr = gen_expr(True, mode)
     
-    if sIsYUV or sIsYCOCG:
+    if sIsYUV:
         expr = [Yexpr, Cexpr]
     elif sIsGRAY and chroma:
         expr = Cexpr
