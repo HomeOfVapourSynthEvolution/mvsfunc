@@ -48,6 +48,7 @@
 ##     Preview
 ##     CheckColorFamily
 ##     RemoveFrameProp
+##     RegisterFormat
 ################################################################################################################################
 
 
@@ -1229,7 +1230,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     elif plane < 0 or plane > sNumPlanes:
         raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
     
-    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
+    floatFormat = RegisterFormat(vs.GRAY, vs.FLOAT, 32, 0, 0)
     floatBlk = core.std.BlankClip(clip, format=floatFormat.id)
     
     clipPlane = GetPlane(clip, plane)
@@ -1364,7 +1365,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
     elif plane < 0 or plane > sNumPlanes:
         raise ValueError(funcName + ': valid range of \"plane\" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
     
-    floatFormat = core.register_format(vs.GRAY, vs.FLOAT, 32, 0, 0)
+    floatFormat = RegisterFormat(vs.GRAY, vs.FLOAT, 32, 0, 0)
     floatBlk = core.std.BlankClip(clip1, format=floatFormat.id)
     
     clip1Plane = GetPlane(clip1, plane)
@@ -2531,7 +2532,7 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     elif not isinstance(depth, int):
         raise TypeError(funcName + ': \"depth\" must be an int!')
     
-    format = core.register_format(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
+    format = RegisterFormat(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
     
     # Process
     zimgResize = core.version_number() >= 29
@@ -2725,7 +2726,7 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
         sample = vs.FLOAT
     else:
         sample = vs.INTEGER
-    dFormat = core.register_format(vs.RGB, sample, depth, 0, 0).id
+    dFormat = RegisterFormat(vs.RGB, sample, depth, 0, 0).id
     
     # Parameters
     if dither is None:
@@ -2780,6 +2781,16 @@ def RemoveFrameProp(clip, prop):
     if vs.__api_version__.api_major >= 4:
         return vs.core.std.RemoveFrameProps(clip, prop)
     return vs.core.std.SetFrameProp(clip, prop, delete=True)
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: RegisterFormat()
+################################################################################################################################
+def RegisterFormat(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h):
+    if vs.__api_version__.api_major >= 4:
+        return vs.core.query_video_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
+    return vs.core.register_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
 ################################################################################################################################
 
 
@@ -2931,7 +2942,7 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     elif depthd >= 8:
         mode = 0
     
-    dFormat = core.register_format(sFormat.color_family, dSType, dbitPS, sFormat.subsampling_w, sFormat.subsampling_h)
+    dFormat = RegisterFormat(sFormat.color_family, dSType, dbitPS, sFormat.subsampling_w, sFormat.subsampling_h)
     
     # Expression function
     def gen_expr(chroma, mode):
