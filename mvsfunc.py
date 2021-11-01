@@ -2536,7 +2536,7 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     
     # Process
     zimgResize = core.version_number() >= 29
-    zimgPlugin = core.get_plugins().__contains__('the.weather.channel')
+    zimgPlugin = core.get_plugins().__contains__('the.weather.channel') if vs.__api_version__.api_major < 4 else hasattr(core, 'z')
     if zimgResize:
         clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, prefer_props=prefer_props)
     elif zimgPlugin and core.z.get_functions().__contains__('Format'):
