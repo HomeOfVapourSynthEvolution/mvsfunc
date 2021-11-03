@@ -83,16 +83,16 @@ VSMaxPlaneNum = 3
 ## Main function: Depth()
 ################################################################################################################################
 ## Bit depth conversion with dithering (if needed).
-## It's a wrapper for fmtc.bitdepth and zDepth(core.resize/zimg).
-## Only constant format is supported, frame properties of the input clip is mostly ignored (only zDepth is able to use it).
+## It's a wrapper for fmtc.bitdepth and zDepth (core.resize/zimg).
+## Only constant format is supported, frame properties of the input clip is mostly ignored (only available with zDepth).
 ################################################################################################################################
 ## Basic parameters
 ##     input {clip}: clip to be converted
-##         can be of YUV/RGB/Gray color family, can be of 8-16 bit integer or 16/32 bit float
-##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
-##         note that 1-7 bit content is still stored as 8 bit integer format
+##         can be of YUV/RGB/Gray color family, can be of 8~16 bit integer or 16/32 bit float
+##     depth {int}: output bit depth, can be 1~16 bit integer or 16/32 bit float
+##         note that 1~7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
-##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##     sample {int}: output sample type, can be 0 (vs.INTEGER) or 1 (vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     fulls {bool}: define if input clip is of full range
 ##         default: None, assume True for RGB/YCgCo input, assume False for Gray/YUV input
@@ -107,7 +107,7 @@ VSMaxPlaneNum = 3
 ##             - output depth is 32, and conversions without quantization error: 1 | "none"
 ##             - otherwise: 3 | "error_diffusion"
 ##     useZ {bool}: prefer zDepth or fmtc.bitdepth for depth conversion
-##         When 13-,15-bit integer or 16-bit float is involved, zDepth is always used.
+##         When 11,13~15 bit integer or 16 bit float is involved, zDepth is always used.
 ##         - False: prefer fmtc.bitdepth
 ##         - True: prefer zDepth
 ##         default: False
@@ -118,11 +118,12 @@ VSMaxPlaneNum = 3
 ##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
-##     ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane: same as those in fmtc.bitdepth, ignored when useZ
+##     ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##         same as those in fmtc.bitdepth, ignored when useZ=True
+##         *NOTE* no positional arguments, only keyword arguments are accepted
 ################################################################################################################################
-def Depth(input, depth=None, sample=None, fulls=None, fulld=None, \
-dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
+def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
+    dither=None, useZ=None, prefer_props=None, **kwargs):
     # Set VS core and function name
     core = vs.core
     funcName = 'Depth'
@@ -132,6 +133,12 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
         raise TypeError(funcName + ': \"input\" must be a clip!')
     
     prefer_props_range = None
+
+    ## Default values for kwargs
+    if 'ampn' not in kwargs:
+        kwargs['ampn'] = None
+    if 'ampo' not in kwargs:
+        kwargs['ampo'] = None
     
     # Get properties of input clip
     sFormat = input.format
@@ -172,7 +179,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
-        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"sample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     else:
         dSType = sample
     if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
@@ -204,7 +211,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
             fulld = False
     
     # Whether to use zDepth or fmtc.bitdepth for conversion
-    # When 13-,15-bit integer or 16-bit float format is involved, force using zDepth
+    # When 11,13~15 bit integer or 16 bit float is involved, force using zDepth
     if useZ is None:
         useZ = False
     elif not isinstance(useZ, int):
@@ -224,8 +231,8 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
         prefer_props_range = prefer_props
     
     # Dithering type
-    if ampn is not None and not isinstance(ampn, float) and not isinstance(ampn, int):
-            raise TypeError(funcName + ': \"ampn\" must be an int or a float!')
+    if kwargs['ampn'] is not None and not isinstance(kwargs['ampn'], (int, float)):
+        raise TypeError(funcName + ': \"ampn\" must be an int or a float!')
     
     if dither is None:
         if dbitPS == 32 or (dbitPS >= sbitPS and fulld == fulls and fulld == False):
@@ -246,7 +253,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
             if dither == 0:
                 dither = "ordered"
             elif dither == 1 or dither == 2:
-                if ampn is not None and ampn > 0:
+                if kwargs['ampn'] is not None and kwargs['ampn'] > 0:
                     dither = "random"
                 else:
                     dither = "none"
@@ -258,10 +265,10 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
             elif dither == "ordered":
                 dither = 0
             elif dither == "random":
-                if ampn is None:
+                if kwargs['ampn'] is None:
                     dither = 1
                     ampn = 1
-                elif ampn > 0:
+                elif kwargs['ampn'] > 0:
                     dither = 1
                 else:
                     dither = 3
@@ -269,9 +276,9 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
                 dither = 3
     
     if not useZ:
-        if ampo is None:
-            ampo = 1.5 if dither == 0 else 1
-        elif not isinstance(ampo, float) and not isinstance(ampo, int):
+        if kwargs['ampo'] is None:
+            kwargs['ampo'] = 1.5 if dither == 0 else 1
+        elif not isinstance(kwargs['ampo'], (int, float)):
             raise TypeError(funcName + ': \"ampo\" must be an int or a float!')
     
     # Skip processing if not needed
@@ -282,7 +289,7 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
     if useZ:
         clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
     else:
-        clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, ampo=ampo, ampn=ampn, dyn=dyn, staticnoise=staticnoise, cpuopt=cpuopt, patsize=patsize, tpdfo=tpdfo, tpdfn=tpdfn, corplane=corplane)
+        clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, **kwargs)
         clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
     
     # Low-depth support
@@ -297,10 +304,9 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
 ################################################################################################################################
 ## Main function: ToRGB()
 ################################################################################################################################
-## Convert any color space to full range RGB.
+## A wrapper of fmtconv to convert any color space to full range RGB.
 ## Thus, if input is limited range RGB, it will be converted to full range.
 ## If matrix is 10, "2020cl" or "bt2020c", the output is linear RGB.
-## It's mainly a wrapper for fmtconv.
 ## Only constant format is supported, frame properties of the input clip is mostly ignored.
 ## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ## It's recommended to use Preview() for previewing now.
@@ -315,24 +321,23 @@ cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None):
 ##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
 ##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
-##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##     sample {int}: output sample type, can be 0 (vs.INTEGER) or 1 (vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     full {bool}: define if input clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
-################################################################################################################################
-## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
-##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
 ##     kernel, taps, a1, a2, cplace:
 ##         used for chroma re-sampling, same as those in fmtc.resample
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
-def ToRGB(input, matrix=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None):
+## Parameters of depth conversion
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##         same as those in Depth()
+##         *NOTE* no positional arguments, only keyword arguments are accepted
+################################################################################################################################
+def ToRGB(input, matrix=None, depth=None, sample=None, full=None,
+    kernel=None, taps=None, a1=None, a2=None, cplace=None, **kwargs):
     # Set VS core and function name
     core = vs.core
     funcName = 'ToRGB'
@@ -386,7 +391,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
-        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"sample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     else:
         dSType = sample
     if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
@@ -430,10 +435,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     if sIsRGB:
         # Skip matrix conversion for RGB input
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, **kwargs)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, **kwargs)
         # Shuffle planes for Gray input
         clip = core.std.ShufflePlanes([clip,clip,clip], [0,0,0], vs.RGB)
         # Set output frame properties
@@ -444,7 +449,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css="444", planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace, flt=pSType==vs.FLOAT)
         # Apply depth conversion for processed clip
         else:
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, **kwargs)
         # Apply matrix conversion for YUV input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1,1,2/3,0, 1,0,-4/3,0, 1,-1,2/3,0], col_fam=vs.RGB)
@@ -454,7 +459,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         else:
             clip = core.fmtc.matrix(clip, mat=matrix, fulls=fulls, fulld=fulld, col_fam=vs.RGB)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, **kwargs)
     
     # Output
     return clip
@@ -464,11 +469,10 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Main function: ToYUV()
 ################################################################################################################################
-## Convert any color space to YUV with/without sub-sampling.
+## A wrapper of fmtconv to convert any color space to YUV with/without sub-sampling.
 ## If input is RGB, it's assumed to be of full range.
-##     Thus, limited range RGB clip should first be manually converted to full range before call this function.
+##     Thus, limited range RGB clip should first be manually converted to full range before calling this function.
 ## If matrix is 10, "2020cl" or "bt2020c", the input should be linear RGB.
-## It's mainly a wrapper for fmtconv.
 ## Only constant format is supported, frame properties of the input clip is mostly ignored.
 ## Note that you may get faster speed with core.resize, or not (for now, dither_type='error_diffusion' is slow).
 ################################################################################################################################
@@ -493,24 +497,23 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     depth {int}: output bit depth, can be 1-16 bit integer or 16/32 bit float
 ##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
-##     sample {int}: output sample type, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##     sample {int}: output sample type, can be 0 (vs.INTEGER) or 1 (vs.FLOAT)
 ##         default is the same as that of the input clip
 ##     full {bool}: define if input/output Gray/YUV clip is of full range
 ##         default: guessed according to the color family of input clip and "matrix"
-################################################################################################################################
-## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
-##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
 ##     kernel, taps, a1, a2, cplace:
 ##         used for chroma re-sampling, same as those in fmtc.resample
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
-def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None, \
-dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
-kernel=None, taps=None, a1=None, a2=None, cplace=None):
+## Parameters of depth conversion
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##         same as those in Depth()
+##         *NOTE* no positional arguments, only keyword arguments are accepted
+################################################################################################################################
+def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None,
+    kernel=None, taps=None, a1=None, a2=None, cplace=None, **kwargs):
     # Set VS core and function name
     core = vs.core
     funcName = 'ToYUV'
@@ -567,7 +570,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
-        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"sample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     else:
         dSType = sample
     if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
@@ -646,22 +649,22 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         # Change chroma sub-sampling if needed
         if dHSubS != sHSubS or dVSubS != sVSubS:
             # Apply depth conversion for processed clip
-            clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+            clip = Depth(clip, pbitPS, pSType, fulls, fulls, **kwargs)
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulls, fulld=fulls, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, **kwargs)
     elif sIsGRAY:
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulls, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulls, fulld, **kwargs)
         # Shuffle planes for Gray input
         widthc = input.width // dHSubS
         heightc = input.height // dVSubS
-        UV = core.std.BlankClip(clip, width=widthc, height=heightc, \
-        color=1 << (dbitPS - 1) if dSType == vs.INTEGER else 0)
+        UV = core.std.BlankClip(clip, width=widthc, height=heightc,
+            color=1 << (dbitPS - 1) if dSType == vs.INTEGER else 0)
         clip = core.std.ShufflePlanes([clip,UV,UV], [0,0,0], vs.YUV)
     else:
         # Apply depth conversion for processed clip
-        clip = Depth(clip, pbitPS, pSType, fulls, fulls, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, pbitPS, pSType, fulls, fulls, **kwargs)
         # Apply matrix conversion for RGB input
         if matrix == "OPP":
             clip = core.fmtc.matrix(clip, fulls=fulls, fulld=fulld, coef=[1/3,1/3,1/3,0, 1/2,0,-1/2,0, 1/4,-1/2,1/4,0], col_fam=vs.YUV)
@@ -674,7 +677,7 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
         if dHSubS != sHSubS or dVSubS != sVSubS:
             clip = core.fmtc.resample(clip, kernel=kernel, taps=taps, a1=a1, a2=a2, css=css, planes=[2,3,3], fulls=fulld, fulld=fulld, cplace=cplace)
         # Apply depth conversion for output clip
-        clip = Depth(clip, dbitPS, dSType, fulld, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, dbitPS, dSType, fulld, fulld, **kwargs)
     
     # Output
     return clip
@@ -684,8 +687,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ################################################################################################################################
 ## Main function: BM3D()
 ################################################################################################################################
-## A wrap function for BM3D/V-BM3D denoising filter.
-## The BM3D filtering is always done in 16-bit int or 32-bit float opponent(OPP) color space internally.
+## A wrap function for easy using of BM3D/V-BM3D denoising filter.
+## The BM3D filtering is always done in 16-bit int or 32-bit float opponent (OPP) color space internally.
 ## It can automatically convert any input color space to OPP and convert it back after filtering.
 ## Alternatively, you can specify "output" to force outputting RGB or OPP, and "css" to change chroma subsampling.
 ## For Gray input, no color space conversion is involved, thus "output" and "css" won't take effect.
@@ -746,12 +749,8 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     depth {int}: bit depth of output clip, can be 1-16 for integer or 16/32 for float
 ##         note that 1-7 bit content is still stored as 8 bit integer format
 ##         default is the same as that of the input clip
-##     sample {int}: sample type of output clip, can be 0(vs.INTEGER) or 1(vs.FLOAT)
+##     sample {int}: sample type of output clip, can be 0 (vs.INTEGER) or 1 (vs.FLOAT)
 ##         default is the same as that of the input clip
-################################################################################################################################
-## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
-##         same as those in Depth()
 ################################################################################################################################
 ## Parameters of resampling
 ##     cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace:
@@ -769,16 +768,20 @@ kernel=None, taps=None, a1=None, a2=None, cplace=None):
 ##     block_size2, block_step2, group_size2, bm_range2, bm_step2, ps_num2, ps_range2, ps_step2, th_mse2:
 ##         same as those in bm3d.Final/bm3d.VFinal
 ################################################################################################################################
-def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=None, \
-refine=None, pre=None, ref=None, psample=None, \
-matrix=None, full=None, \
-output=None, css=None, depth=None, sample=None, \
-dither=None, useZ=None, prefer_props=None, ampo=None, ampn=None, dyn=None, staticnoise=None, \
-cpuopt=None, patsize=None, tpdfo=None, tpdfn=None, corplane=None, \
-cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None, \
-cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None, \
-block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None, \
-block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=None, ps_num2=None, ps_range2=None, ps_step2=None, th_mse2=None):
+## Parameters of depth conversion
+##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##         same as those in Depth()
+##         *NOTE* no positional arguments, only keyword arguments are accepted
+################################################################################################################################
+def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=None,
+    refine=None, pre=None, ref=None, psample=None,
+    matrix=None, full=None,
+    output=None, css=None, depth=None, sample=None,
+    cu_kernel=None, cu_taps=None, cu_a1=None, cu_a2=None, cu_cplace=None,
+    cd_kernel=None, cd_taps=None, cd_a1=None, cd_a2=None, cd_cplace=None,
+    block_size1=None, block_step1=None, group_size1=None, bm_range1=None, bm_step1=None, ps_num1=None, ps_range1=None, ps_step1=None, th_mse1=None, hard_thr=None,
+    block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=None, ps_num2=None, ps_range2=None, ps_step2=None, th_mse2=None,
+    **kwargs):
     # Set VS core and function name
     core = vs.core
     funcName = 'BM3D'
@@ -823,7 +826,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     elif not isinstance(psample, int):
         raise TypeError(funcName + ': \"psample\" must be an int!')
     elif psample != vs.INTEGER and psample != vs.FLOAT:
-        raise ValueError(funcName + ': \"psample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"psample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     pbitPS = 16 if psample == vs.INTEGER else 32
     pSType = psample
     
@@ -944,7 +947,7 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
-        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"sample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     else:
         dSType = sample
     if depth is None and sSType != vs.FLOAT and sample == vs.FLOAT:
@@ -969,30 +972,30 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     if sIsGRAY:
         onlyY = True
         # Convert Gray input to full range Gray in processed format
-        clip = Depth(clip, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(clip, pbitPS, pSType, fulls, True, **kwargs)
         if pre is not None:
-            pre = Depth(pre, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+            pre = Depth(pre, pbitPS, pSType, fulls, True, **kwargs)
         if ref is not None:
-            ref = Depth(ref, pbitPS, pSType, fulls, True, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+            ref = Depth(ref, pbitPS, pSType, fulls, True, **kwargs)
     else:
         # Convert input to full range RGB
-        clip = ToRGB(clip, matrix, pbitPS, pSType, fulls, \
-        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+        clip = ToRGB(clip, matrix, pbitPS, pSType, fulls,
+            cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         if pre is not None:
-            pre = ToRGB(pre, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            pre = ToRGB(pre, matrix, pbitPS, pSType, fulls,
+                cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         if ref is not None:
-            ref = ToRGB(ref, matrix, pbitPS, pSType, fulls, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            ref = ToRGB(ref, matrix, pbitPS, pSType, fulls,
+                cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         # Convert full range RGB to full range OPP
-        clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True, \
-        dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+        clip = ToYUV(clip, "OPP", "444", pbitPS, pSType, True,
+            cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         if pre is not None:
-            pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            pre = ToYUV(pre, "OPP", "444", pbitPS, pSType, True,
+                cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         if ref is not None:
-            ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace)
+            ref = ToYUV(ref, "OPP", "444", pbitPS, pSType, True,
+                cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         # Convert OPP to Gray if only Y is processed
         srcOPP = clip
         if sigma[1] <= 0 and sigma[2] <= 0:
@@ -1012,16 +1015,16 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
     elif radius1 < 1:
         # Apply BM3D basic estimate
         # Optional pre-filtered clip for block-matching can be specified by "pre"
-        flt = core.bm3d.Basic(clip, ref=pre, profile=profile1, sigma=sigma, \
-        block_size=block_size1, block_step=block_step1, group_size=group_size1, \
-        bm_range=bm_range1, bm_step=bm_step1, th_mse=th_mse1, hard_thr=hard_thr, matrix=100)
+        flt = core.bm3d.Basic(clip, ref=pre, profile=profile1, sigma=sigma,
+            block_size=block_size1, block_step=block_step1, group_size=group_size1,
+            bm_range=bm_range1, bm_step=bm_step1, th_mse=th_mse1, hard_thr=hard_thr, matrix=100)
     else:
         # Apply V-BM3D basic estimate
         # Optional pre-filtered clip for block-matching can be specified by "pre"
-        flt = core.bm3d.VBasic(clip, ref=pre, profile=profile1, sigma=sigma, radius=radius1, \
-        block_size=block_size1, block_step=block_step1, group_size=group_size1, \
-        bm_range=bm_range1, bm_step=bm_step1, ps_num=ps_num1, ps_range=ps_range1, ps_step=ps_step1, \
-        th_mse=th_mse1, hard_thr=hard_thr, matrix=100).bm3d.VAggregate(radius=radius1, sample=pSType)
+        flt = core.bm3d.VBasic(clip, ref=pre, profile=profile1, sigma=sigma, radius=radius1,
+            block_size=block_size1, block_step=block_step1, group_size=group_size1,
+            bm_range=bm_range1, bm_step=bm_step1, ps_num=ps_num1, ps_range=ps_range1, ps_step=ps_step1,
+            th_mse=th_mse1, hard_thr=hard_thr, matrix=100).bm3d.VAggregate(radius=radius1, sample=pSType)
         # Shuffle Y plane back if not processed
         if not onlyY and sigma[0] <= 0:
             flt = core.std.ShufflePlanes([clip,flt,flt], [0,1,2], vs.YUV)
@@ -1032,43 +1035,43 @@ block_size2=None, block_step2=None, group_size2=None, bm_range2=None, bm_step2=N
             flt = clip
         elif radius2 < 1:
             # Apply BM3D final estimate
-            flt = core.bm3d.Final(clip, ref=flt, profile=profile2, sigma=sigma, \
-            block_size=block_size2, block_step=block_step2, group_size=group_size2, \
-            bm_range=bm_range2, bm_step=bm_step2, th_mse=th_mse2, matrix=100)
+            flt = core.bm3d.Final(clip, ref=flt, profile=profile2, sigma=sigma,
+                block_size=block_size2, block_step=block_step2, group_size=group_size2,
+                bm_range=bm_range2, bm_step=bm_step2, th_mse=th_mse2, matrix=100)
         else:
             # Apply V-BM3D final estimate
-            flt = core.bm3d.VFinal(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2, \
-            block_size=block_size2, block_step=block_step2, group_size=group_size2, \
-            bm_range=bm_range2, bm_step=bm_step2, ps_num=ps_num2, ps_range=ps_range2, ps_step=ps_step2, \
-            th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius2, sample=pSType)
+            flt = core.bm3d.VFinal(clip, ref=flt, profile=profile2, sigma=sigma, radius=radius2,
+                block_size=block_size2, block_step=block_step2, group_size=group_size2,
+                bm_range=bm_range2, bm_step=bm_step2, ps_num=ps_num2, ps_range=ps_range2, ps_step=ps_step2,
+                th_mse=th_mse2, matrix=100).bm3d.VAggregate(radius=radius2, sample=pSType)
             # Shuffle Y plane back if not processed
             if not onlyY and sigma[0] <= 0:
                 flt = core.std.ShufflePlanes([clip,flt,flt], [0,1,2], vs.YUV)
     
     # Convert to output format
     if sIsGRAY:
-        clip = Depth(flt, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+        clip = Depth(flt, dbitPS, dSType, True, fulld, **kwargs)
     else:
         # Shuffle back to YUV if not all planes are processed
         if onlyY:
             clip = core.std.ShufflePlanes([flt,srcOPP,srcOPP], [0,1,2], vs.YUV)
         elif sigma[1] <= 0 or sigma[2] <= 0:
-            clip = core.std.ShufflePlanes([flt, clip if sigma[1] <= 0 else flt, \
-            clip if sigma[2] <= 0 else flt], [0,1,2], vs.YUV)
+            clip = core.std.ShufflePlanes([flt, clip if sigma[1] <= 0 else flt,
+                clip if sigma[2] <= 0 else flt], [0,1,2], vs.YUV)
         else:
             clip = flt
         # Convert to final output format
         if output <= 1:
             # Convert full range OPP to full range RGB
-            clip = ToRGB(clip, "OPP", pbitPS, pSType, True, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, False)
+            clip = ToRGB(clip, "OPP", pbitPS, pSType, True,
+                cu_kernel, cu_taps, cu_a1, cu_a2, cu_cplace, **kwargs)
         if output <= 0 and not sIsRGB:
             # Convert full range RGB to YUV
-            clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld, \
-            dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane, cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace)
+            clip = ToYUV(clip, matrix, css, dbitPS, dSType, fulld,
+                cd_kernel, cd_taps, cd_a1, cd_a2, cd_cplace, **kwargs)
         else:
             # Depth conversion for RGB or OPP output
-            clip = Depth(clip, dbitPS, dSType, True, fulld, dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane)
+            clip = Depth(clip, dbitPS, dSType, True, fulld, **kwargs)
     
     # Output
     return clip
@@ -2913,7 +2916,7 @@ clamp=None, dbitPS=None, mode=None, funcName='_quantization_conversion'):
     elif not isinstance(sample, int):
         raise TypeError(funcName + ': \"sample\" must be an int!')
     elif sample != vs.INTEGER and sample != vs.FLOAT:
-        raise ValueError(funcName + ': \"sample\" must be either 0(vs.INTEGER) or 1(vs.FLOAT)!')
+        raise ValueError(funcName + ': \"sample\" must be either 0 (vs.INTEGER) or 1 (vs.FLOAT)!')
     else:
         dSType = sample
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
