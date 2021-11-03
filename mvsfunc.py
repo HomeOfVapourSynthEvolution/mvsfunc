@@ -102,7 +102,7 @@ VSMaxPlaneNum = 3
 ## Advanced parameters
 ##     dither {int|str}: dithering algorithm applied for depth conversion
 ##         - {int}: same as "dmode" in fmtc.bitdepth, will be automatically converted if using zDepth
-##         - {str}: same as "dither" in zDepth, will be automatically converted if using fmtc.bitdepth
+##         - {str}: same as "dither_type" in zDepth, will be automatically converted if using fmtc.bitdepth
 ##         - default:
 ##             - output depth is 32, and conversions without quantization error: 1 | "none"
 ##             - otherwise: 3 | "error_diffusion"
@@ -111,11 +111,6 @@ VSMaxPlaneNum = 3
 ##         - False: prefer fmtc.bitdepth
 ##         - True: prefer zDepth
 ##         default: False
-##     prefer_props {bool}: determines whether frame properties or arguments take precedence when both are present
-##         For now, it only makes sense when zDepth is involved and only affects the _ColorRange property.
-##         - False: prefer arguments
-##         - True: prefer frame properties
-##         default: False
 ################################################################################################################################
 ## Parameters of fmtc.bitdepth
 ##     ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
@@ -123,7 +118,7 @@ VSMaxPlaneNum = 3
 ##         *NOTE* no positional arguments, only keyword arguments are accepted
 ################################################################################################################################
 def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
-    dither=None, useZ=None, prefer_props=None, **kwargs):
+    dither=None, useZ=None, **kwargs):
     # Set VS core and function name
     core = vs.core
     funcName = 'Depth'
@@ -132,8 +127,6 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
     if not isinstance(input, vs.VideoNode):
         raise TypeError(funcName + ': \"input\" must be a clip!')
     
-    prefer_props_range = None
-
     ## Default values for kwargs
     if 'ampn' not in kwargs:
         kwargs['ampn'] = None
@@ -223,13 +216,6 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
     if (sSType == vs.FLOAT and sbitPS < 32) or (dSType == vs.FLOAT and dbitPS < 32):
         useZ = True
     
-    if prefer_props is None:
-        prefer_props = False
-    elif not isinstance(prefer_props, int):
-        raise TypeError(funcName + ': \"prefer_props\" must be a bool!')
-    if prefer_props_range is None:
-        prefer_props_range = prefer_props
-    
     # Dithering type
     if kwargs['ampn'] is not None and not isinstance(kwargs['ampn'], (int, float)):
         raise TypeError(funcName + ': \"ampn\" must be an int or a float!')
@@ -282,12 +268,12 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
             raise TypeError(funcName + ': \"ampo\" must be an int or a float!')
     
     # Skip processing if not needed
-    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or (fulld == fulls and not prefer_props_range)) and not lowDepth:
+    if dSType == sSType and dbitPS == sbitPS and (sSType == vs.FLOAT or fulld == fulls) and not lowDepth:
         return clip
     
     # Apply conversion
     if useZ:
-        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither, prefer_props=prefer_props_range)
+        clip = zDepth(clip, sample=dSType, depth=dbitPS, range=fulld, range_in=fulls, dither_type=dither)
     else:
         clip = core.fmtc.bitdepth(clip, bits=dbitPS, flt=dSType, fulls=fulls, fulld=fulld, dmode=dither, **kwargs)
         clip = SetColorSpace(clip, ColorRange=0 if fulld else 1)
@@ -332,7 +318,7 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom".
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##     dither, useZ, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ##         *NOTE* no positional arguments, only keyword arguments are accepted
 ################################################################################################################################
@@ -508,7 +494,7 @@ def ToRGB(input, matrix=None, depth=None, sample=None, full=None,
 ##         default: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##     dither, useZ, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ##         *NOTE* no positional arguments, only keyword arguments are accepted
 ################################################################################################################################
@@ -769,7 +755,7 @@ def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None,
 ##         same as those in bm3d.Final/bm3d.VFinal
 ################################################################################################################################
 ## Parameters of depth conversion
-##     dither, useZ, prefer_props, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
+##     dither, useZ, ampo, ampn, dyn, staticnoise, cpuopt, patsize, tpdfo, tpdfn, corplane:
 ##         same as those in Depth()
 ##         *NOTE* no positional arguments, only keyword arguments are accepted
 ################################################################################################################################
@@ -2517,7 +2503,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 ## Smart function to utilize zimg depth conversion for both 1.0 and 2.0 API of vszimg as well as core.resize.
 ## core.resize is preferred now.
 ################################################################################################################################
-def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None, prefer_props=None):
+def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type=None, cpu_type=None):
     # Set VS core and function name
     core = vs.core
     funcName = 'zDepth'
@@ -2542,16 +2528,16 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     format = RegisterFormat(sFormat.color_family, sample, depth, sFormat.subsampling_w, sFormat.subsampling_h)
     
     # Process
-    zimgResize = core.version_number() >= 29
-    zimgPlugin = core.get_plugins().__contains__('the.weather.channel') if vs.__api_version__.api_major < 4 else hasattr(core, 'z')
+    zimgResize = hasattr(core, 'resize')
+    zimgPlugin = hasattr(core, 'z')
     if zimgResize:
-        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, prefer_props=prefer_props)
-    elif zimgPlugin and core.z.get_functions().__contains__('Format'):
+        clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
+    elif zimgPlugin and hasattr(core.z, 'Format'):
         clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
-    elif zimgPlugin and core.z.get_functions().__contains__('Depth'):
+    elif zimgPlugin and hasattr(core.z, 'Depth'):
         clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
     else:
-        raise AttributeError(funcName + ': Available zimg not found!')
+        raise AttributeError(funcName + ': no available core.resize or zimg found!')
     
     # Output
     return clip
@@ -2702,14 +2688,14 @@ def GrayScale(clip, matrix=None):
 ################################################################################################################################
 ## Set "plane" if you want to output a specific plane.
 ################################################################################################################################
-## matrix, full, dither, kernel, a1, a2, prefer_props correspond to matrix_in, range_in, dither_type,
-## resample_filter_uv, filter_param_a_uv, filter_param_b_uv, prefer_props in resize.Bicubic.
+## matrix, full, dither, kernel, a1, a2 correspond to matrix_in, range_in, dither_type,
+## resample_filter_uv, filter_param_a_uv, filter_param_b_uv in resize.Bicubic.
 ## "matrix" is passed to GetMatrix(id=True) first.
 ## default dither: random
 ## default chroma resampler: kernel="bicubic", a1=0, a2=0.5, also known as "Catmull-Rom"
 ################################################################################################################################
-def Preview(clips, plane=None, matrix=None, full=None, depth=None,\
-dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
+def Preview(clips, plane=None, matrix=None, full=None, depth=None,
+    dither=None, kernel=None, a1=None, a2=None):
     # Set VS core and function name
     core = vs.core
     funcName = 'Preview'
@@ -2748,7 +2734,11 @@ dither=None, kernel=None, a1=None, a2=None, prefer_props=None):
     def _Conv(clip):
         if plane is not None:
             clip = GetPlane(clip, plane)
-        return core.resize.Bicubic(clip, ref.width, ref.height, format=dFormat, matrix_in=GetMatrix(clip, matrix, True, True), range_in=full, filter_param_a=0, filter_param_b=0.5, resample_filter_uv=kernel, filter_param_a_uv=a1, filter_param_b_uv=a2, dither_type=dither, prefer_props=prefer_props)
+        return core.resize.Bicubic(clip, ref.width, ref.height, format=dFormat,
+            matrix_in=GetMatrix(clip, matrix, True, True), range_in=full,
+            filter_param_a=0, filter_param_b=0.5,
+            resample_filter_uv=kernel, filter_param_a_uv=a1, filter_param_b_uv=a2,
+            dither_type=dither)
     
     if isinstance(clips, vs.VideoNode):
         clip = _Conv(clips)
