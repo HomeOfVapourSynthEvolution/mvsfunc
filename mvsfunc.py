@@ -53,6 +53,7 @@
 
 
 import vapoursynth as vs
+import warnings
 import functools
 import math
 
@@ -2427,6 +2428,10 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     CheckColorFamily(sColorFamily)
     sIsRGB = sColorFamily == vs.RGB
     
+    # Get frameprops of input frame 0
+    sFrame = clip.get_frame(0)
+    sFrameProps = sFrame.props
+    
     # Get properties of output clip
     if dIsRGB is None:
         dIsRGB = not sIsRGB
@@ -2455,6 +2460,7 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
     # Convert to string format
     if matrix is None:
         matrix = "Unspecified"
+        unspec = True
     elif not isinstance(matrix, int) and not isinstance(matrix, str):
         raise TypeError(funcName + ': \"matrix\" must be an int or a str!')
     else:
@@ -2491,6 +2497,20 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
             matrix = 0 if id else "RGB"
         else:
             matrix = (6 if id else "601") if SD else (9 if id else "2020") if UHD else (1 if id else "709")
+    
+    # Check automatic determination conform frameprops, if not, frameprops take precedence
+    if unspec:
+        sMatrix = sFrameProps['_Matrix']
+        dictMatrix = {0:"RGB", 1:"709", 5:"601", 6:"601", 8:"YCgCo", 9:"2020", 10:"2020"}
+        if not id:
+            sMatrix = dictMatrix[sMatrix]
+            if not matrix is sMatrix:
+                matrix = sMatrix
+                warnings.warn(funcName + 'automatic determination not conform frameprops, prefer frameprops.')
+        else:
+            if not matrix is sMatrix or (matrix == 6 and sMatrix == 5) or (matrix == 9 and sMatrix == 10):
+                matrix = sMatrix
+                warnings.warn(funcName + ': automatic determination not conform frameprops, prefer frameprops.')
     
     # Output
     return matrix
