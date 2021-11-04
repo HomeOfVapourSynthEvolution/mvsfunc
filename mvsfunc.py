@@ -1573,7 +1573,7 @@ def FilterIf(src, flt, prop_name, props=None):
 ################################################################################################################################
 def FilterCombed(src, flt, props=None):
     clip = FilterIf(src, flt, '_Combed', props)
-    clip = clip.std.SetFrameProp('_Combed', delete=True)
+    clip = RemoveFrameProp(clip, '_Combed')
     return AssumeFrame(clip)
 ################################################################################################################################
 
