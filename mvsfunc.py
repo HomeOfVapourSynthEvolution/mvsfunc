@@ -180,9 +180,9 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
     elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
         dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
-        raise value_error('{0}-bit integer output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit integer output is not supported!')
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
-        raise value_error('{0}-bit float output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit float output is not supported!')
     
     if fulld is None:
         fulld = fulls
@@ -383,9 +383,9 @@ def ToRGB(input, matrix=None, depth=None, sample=None, full=None,
     elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
         dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
-        raise value_error('{0}-bit integer output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit integer output is not supported!')
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
-        raise value_error('{0}-bit float output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit float output is not supported!')
     
     fulld = True
     
@@ -560,9 +560,9 @@ def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None,
     elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
         dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
-        raise value_error('{0}-bit integer output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit integer output is not supported!')
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
-        raise value_error('{0}-bit float output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit float output is not supported!')
     
     if full is None:
         # If not set, assume limited range for YUV and Gray output
@@ -580,7 +580,7 @@ def ToYUV(input, matrix=None, css=None, depth=None, sample=None, full=None,
     if css is None:
         dHSubS = sHSubS
         dVSubS = sVSubS
-        css = '{ssw}{ssh}'.format(ssw=dHSubS, ssh=dVSubS)
+        css = f'{dHSubS}{dVSubS}'
     elif not isinstance(css, str):
         raise type_error('"css" must be a str!')
     else:
@@ -814,7 +814,7 @@ def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=
     if css is None:
         dHSubS = sHSubS
         dVSubS = sVSubS
-        css = '{ssw}{ssh}'.format(ssw=dHSubS, ssh=dVSubS)
+        css = f'{dHSubS}{dVSubS}'
     elif not isinstance(css, str):
         raise type_error('"css" must be a str!')
     else:
@@ -935,9 +935,9 @@ def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=
     elif depth is None and sSType != vs.INTEGER and sample == vs.INTEGER:
         dbitPS = 16
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
-        raise value_error('{0}-bit integer output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit integer output is not supported!')
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
-        raise value_error('{0}-bit float output is not supported!'.format(dbitPS))
+        raise value_error(f'{dbitPS}-bit float output is not supported!')
     
     if output == 0:
         fulld = fulls
@@ -1105,7 +1105,7 @@ def VFRSplice(clips, tcfile=None, v2=None, precision=None):
     
     # Fraction to str function
     def frac2str(num, den, precision=6):
-        return '{:<.{precision}F}'.format(num / den, precision=precision)
+        return f'{num / den : <.{precision}F}'
     
     # Timecode file
     if tcfile is None:
@@ -1132,12 +1132,15 @@ def VFRSplice(clips, tcfile=None, v2=None, precision=None):
             for tc in tc_list:
                 frame_duration = 1000 * tc[3] / tc[2] # ms
                 for frame in range(tc[0], tc[1] + 1):
-                    olines.append('{:<.{precision}F}\n'.format(time, precision=precision))
+                    olines.append(f'{time : <.{precision}F}\n')
                     time += frame_duration
         else: # timecode v1
-            olines = ['# timecode format v1\n', 'Assume {}\n'.format(frac2str(tc_list[0][2], tc_list[0][3], precision))]
+            olines = [
+                '# timecode format v1\n',
+                f'Assume {frac2str(tc_list[0][2], tc_list[0][3], precision)}\n'
+            ]
             for tc in tc_list:
-                olines.append('{},{},{}\n'.format(tc[0], tc[1], frac2str(tc[2], tc[3], precision)))
+                olines.append(f'{tc[0]},{tc[1]},{frac2str(tc[2], tc[3], precision)}\n')
         try:
             ofile.writelines(olines)
         finally:
@@ -1208,7 +1211,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
     elif not isinstance(plane, int):
         raise type_error('"plane" must be an int!')
     elif plane < 0 or plane > sNumPlanes:
-        raise value_error('valid range of "plane" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+        raise value_error(f'valid range of "plane" is [0, {sNumPlanes})!')
     
     floatFormat = RegisterFormat(vs.GRAY, vs.FLOAT, 32, 0, 0)
     floatBlk = core.std.BlankClip(clip, format=floatFormat.id)
@@ -1223,7 +1226,8 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
         '''# always float precision
         def _PlaneADFrame(n, f, clip):
             mean = f.props.PlaneMean
-            expr = "x {gain} * {mean} - abs".format(gain=1 / valueRange, mean=mean)
+            scale = 1 / valueRange
+            expr = f"x {scale} * {mean} - abs"
             return core.std.Expr(clip, expr, floatFormat.id)
         ADclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneADFrame, clip=clipPlane), clip)'''
         if hasattr(core, 'akarin'):
@@ -1231,7 +1235,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
         else:
             def _PlaneADFrame(n, f, clip):
                 mean = f.props.PlaneMean * valueRange
-                expr = "x {mean} - abs".format(mean=mean)
+                expr = f"x {mean} - abs"
                 return core.std.Expr(clip, expr)
             ADclip = core.std.FrameEval(clipPlane, functools.partial(_PlaneADFrame, clip=clipPlane), clip)
         ADclip = PlaneAverage(ADclip, 0, "PlaneMAD")
@@ -1249,7 +1253,7 @@ def PlaneStatistics(clip, plane=None, mean=True, mad=True, var=True, std=True, r
         else:
             def _PlaneSDFrame(n, f, clip):
                 mean = f.props.PlaneMean * valueRange
-                expr = "x {mean} - dup *".format(mean=mean)
+                expr = f"x {mean} - dup *"
                 return core.std.Expr(clip, expr, floatFormat.id)
             SDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clipPlane), clip)
         SDclip = PlaneAverage(SDclip, 0, "PlaneVar")
@@ -1340,7 +1344,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
     elif not isinstance(plane, int):
         raise type_error('"plane" must be an int!')
     elif plane < 0 or plane > sNumPlanes:
-        raise value_error('valid range of "plane" is [0, sNumPlanes)!'.format(sNumPlanes=sNumPlanes))
+        raise value_error(f'valid range of "plane" is [0, {sNumPlanes})!')
     
     floatFormat = RegisterFormat(vs.GRAY, vs.FLOAT, 32, 0, 0)
     floatBlk = core.std.BlankClip(clip1, format=floatFormat.id)
@@ -1386,7 +1390,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
             def _PlaneCoDFrame(n, f, clip1, clip2):
                 mean1 = f[0].props.PlaneMean * valueRange
                 mean2 = f[1].props.PlaneMean * valueRange
-                expr = "x {mean1} - y {mean2} - *".format(mean1=mean1, mean2=mean2)
+                expr = f"x {mean1} - y {mean2} - *"
                 return core.std.Expr([clip1, clip2], expr, floatFormat.id)
             CoDclip = core.std.FrameEval(floatBlk, functools.partial(_PlaneCoDFrame, clip1=clip1Plane, clip2=clip2Plane), [clip1Mean, clip2Mean])
 
@@ -1401,7 +1405,7 @@ def PlaneCompare(clip1, clip2, plane=None, mae=True, rmse=True, psnr=True, cov=T
             else:
                 def _PlaneSDFrame(n, f, clip):
                     mean = f.props.PlaneMean * valueRange
-                    expr = "x {mean} - dup *".format(mean=mean)
+                    expr = f"x {mean} - dup *"
                     return core.std.Expr(clip, expr, floatFormat.id)
                 SDclip1 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip1Plane), clip1Mean)
                 SDclip2 = core.std.FrameEval(floatBlk, functools.partial(_PlaneSDFrame, clip=clip2Plane), clip2Mean)
@@ -1463,11 +1467,11 @@ def ShowAverage(clip, alignment=None):
         text = ""
         if sNumPlanes == 1:
             average = f.props.PlaneAverage * valueRange + offset[0]
-            text += "PlaneAverage[{plane}]={average}".format(plane=0, average=average)
+            text += f"PlaneAverage[{0}]={average}"
         else:
             for p in range(sNumPlanes):
                 average = f[p].props.PlaneAverage * valueRange + offset[p]
-                text += "PlaneAverage[{plane}]={average}\n".format(plane=p, average=average)
+                text += f"PlaneAverage[{p}]={average}\n"
         return core.text.Text(clip, text, alignment)
     
     avg = []
@@ -1817,14 +1821,14 @@ def LimitFilter(flt, src, ref=None, thr=None, elast=None, brighten_thr=None, thr
         process = [1 for i in range(VSMaxPlaneNum)]
     elif isinstance(planes, int):
         if planes < 0 or planes >= VSMaxPlaneNum:
-            raise value_error('valid range of "planes" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+            raise value_error(f'valid range of "planes" is [0, {VSMaxPlaneNum})!')
         process[planes] = 1
     elif isinstance(planes, Sequence):
         for p in planes:
             if not isinstance(p, int):
                 raise type_error('"planes" must be a (sequence of) int!')
             elif p < 0 or p >= VSMaxPlaneNum:
-                raise value_error('valid range of "planes" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum))
+                raise value_error(f'valid range of "planes" is [0, {VSMaxPlaneNum})!')
             process[p] = 1
     else:
         raise type_error('"planes" must be a (sequence of) int!')
@@ -2003,7 +2007,7 @@ def CheckMatrix(clip, matrices=None, full=None, lower=None, upper=None):
     rgb_clips = []
     for matrix in matrices:
         rgb_clip = ToRGB(clip, matrix=matrix)
-        rgb_clip = rgb_clip.std.Expr('x {lower} < 1 x - x {upper} > x 0 ? ?'.format(lower=lower, upper=upper))
+        rgb_clip = rgb_clip.std.Expr(f'x {lower} < 1 x - x {upper} > x 0 ? ?')
         rgb_clip = PlaneAverage(rgb_clip, 0, props[0])
         rgb_clip = PlaneAverage(rgb_clip, 1, props[1])
         rgb_clip = PlaneAverage(rgb_clip, 2, props[2])
@@ -2060,14 +2064,14 @@ def postfix2infix(expr):
                 stack.append(operand1)
                 stack.append(operand1)
             else:
-                stack.append('{}({})'.format(item, remove_brackets(operand1)))
+                stack.append(f'{item}({remove_brackets(operand1)})')
         elif op2.count(item) > 0:
             try:
                 operand2 = stack.pop()
                 operand1 = stack.pop()
             except IndexError:
                 raise value_error('Invalid expression, require operands.')
-            stack.append('({} {} {})'.format(operand1, item, operand2))
+            stack.append(f'({operand1} {item} {operand2})')
         elif op3.count(item) > 0:
             try:
                 operand3 = stack.pop()
@@ -2075,7 +2079,7 @@ def postfix2infix(expr):
                 operand1 = stack.pop()
             except IndexError:
                 raise value_error('Invalid expression, require operands.')
-            stack.append('({} {} {} {} {})'.format(operand1, item, operand2, ':', operand3))
+            stack.append(f'({operand1} {item} {operand2} : {operand3})')
         else:
             stack.append(item)
 
@@ -2324,11 +2328,11 @@ def AssumeCombed(clip, combed=True):
 ################################################################################################################################
 def CheckVersion(version, less=False, equal=True, greater=True):
     if not less and MvsFuncVersion < version:
-        raise ImportWarning('mvsfunc version(={0}) is less than the version(={1}) specified!'.format(MvsFuncVersion, version))
+        raise ImportWarning(f'mvsfunc version ({MvsFuncVersion}) is less than the version ({version}) specified!')
     if not equal and MvsFuncVersion == version:
-        raise ImportWarning('mvsfunc version(={0}) is equal to the version(={1}) specified!'.format(MvsFuncVersion, version))
+        raise ImportWarning(f'mvsfunc version ({MvsFuncVersion}) is equal to the version ({version}) specified!')
     if not greater and MvsFuncVersion > version:
-        raise ImportWarning('mvsfunc version(={0}) is greater than the version(={1}) specified!'.format(MvsFuncVersion, version))
+        raise ImportWarning(f'mvsfunc version ({MvsFuncVersion}) is greater than the version ({version}) specified!')
     
     return True
 ################################################################################################################################
@@ -2517,7 +2521,7 @@ def PlaneAverage(clip, plane=None, prop=None):
     elif not isinstance(plane, int):
         raise type_error('"plane" must be an int!')
     elif plane < 0 or plane > sNumPlanes:
-        raise value_error('valid range of "plane" is [0, {})!'.format(sNumPlanes))
+        raise value_error(f'valid range of "plane" is [0, {sNumPlanes})!')
     
     if prop is None:
         prop = 'PlaneAverage'
@@ -2570,7 +2574,7 @@ def GetPlane(clip, plane=None):
     elif not isinstance(plane, int):
         raise type_error('"plane" must be an int!')
     elif plane < 0 or plane > sNumPlanes:
-        raise value_error('valid range of "plane" is [0, {})!'.format(sNumPlanes))
+        raise value_error(f'valid range of "plane" is [0, {sNumPlanes})!')
     
     # Process
     return core.std.ShufflePlanes(clip, plane, vs.GRAY)
@@ -2865,9 +2869,9 @@ def _quantization_conversion(clip, depths=None, depthd=None, sample=None, fulls=
     else:
         dSType = sample
     if dSType == vs.INTEGER and (dbitPS < 1 or dbitPS > 16):
-        raise value_error('{0}-bit integer output is not supported!'.format(dbitPS), num_stacks=2)
+        raise value_error(f'{dbitPS}-bit integer output is not supported!', num_stacks=2)
     if dSType == vs.FLOAT and (dbitPS != 16 and dbitPS != 32):
-        raise value_error('{0}-bit float output is not supported!'.format(dbitPS), num_stacks=2)
+        raise value_error(f'{dbitPS}-bit float output is not supported!', num_stacks=2)
     
     if fulld is None:
         fulld = fulls
@@ -2920,11 +2924,11 @@ def _quantization_conversion(clip, depths=None, depthd=None, sample=None, fulls=
         
         if gain != 1 or offset != 0 or clamp:
             expr = " x "
-            if gain != 1: expr = expr + " {} * ".format(gain)
-            if offset != 0: expr = expr + " {} + ".format(offset)
+            if gain != 1: expr = expr + f" {gain} * "
+            if offset != 0: expr = expr + f" {offset} + "
             if clamp:
-                if dQP['floor'] * scale > exprLower: expr = expr + " {} max ".format(dQP['floor'] * scale)
-                if dQP['ceil'] * scale < exprUpper: expr = expr + " {} min ".format(dQP['ceil'] * scale)
+                if dQP['floor'] * scale > exprLower: expr = expr + f" {dQP['floor'] * scale} max "
+                if dQP['ceil'] * scale < exprUpper: expr = expr + f" {dQP['ceil'] * scale} min "
         else:
             expr = ""
         
@@ -2964,11 +2968,11 @@ def _check_arg_prop(arg, default=None, defaultTrue=None, argName='arg'):
     elif isinstance(arg, str):
         if arg:
             if not arg.isidentifier():
-                raise value_error('{argName}="{arg}" is not a valid identifier!'.format(argName=argName, arg=arg), num_stacks=2)
+                raise value_error(f'{argName}="{arg}" is not a valid identifier!', num_stacks=2)
         else:
             arg = False
     else:
-        raise type_error('"{argName}" must be a str or a bool!'.format(argName=argName), num_stacks=2)
+        raise type_error(f'"{argName}" must be a str or a bool!', num_stacks=2)
     
     return arg
 ################################################################################################################################
@@ -3020,14 +3024,14 @@ def _operator2(clip1, clip2, mode, neutral, name):
     for i in range(sNumPlanes):
         if name == 'Min':
             if mode[i] >= 2:
-                expr.append("y {neutral} - abs x {neutral} - abs < y x ?".format(neutral=neutral))
+                expr.append(f"y {neutral} - abs x {neutral} - abs < y x ?")
             elif mode[i] == 1:
                 expr.append("x y min")
             else:
                 expr.append("")
         elif name == 'Max':
             if mode[i] >= 2:
-                expr.append("y {neutral} - abs x {neutral} - abs > y x ?".format(neutral=neutral))
+                expr.append(f"y {neutral} - abs x {neutral} - abs > y x ?")
             elif mode[i] == 1:
                 expr.append("x y max")
             else:
@@ -3072,14 +3076,14 @@ def _min_max_filter(src, flt1, flt2, planes, name):
         process = [1 for i in range(VSMaxPlaneNum)]
     elif isinstance(planes, int):
         if planes < 0 or planes >= VSMaxPlaneNum:
-            raise value_error('valid range of "planes" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum), num_stacks=2)
+            raise value_error(f'valid range of "planes" is [0, {VSMaxPlaneNum})!', num_stacks=2)
         process[planes] = 1
     elif isinstance(planes, Sequence):
         for p in planes:
             if not isinstance(p, int):
                 raise type_error('"planes" must be a (sequence of) int!')
             elif p < 0 or p >= VSMaxPlaneNum:
-                raise value_error('valid range of "planes" is [0, {VSMaxPlaneNum})!'.format(VSMaxPlaneNum=VSMaxPlaneNum), num_stacks=2)
+                raise value_error(f'valid range of "planes" is [0, {VSMaxPlaneNum})!', num_stacks=2)
             process[p] = 1
     else:
         raise type_error('"planes" must be a (sequence of) int!', num_stacks=2)
@@ -3109,50 +3113,47 @@ def _limit_filter_expr(defref, thr, elast, largen_thr, value_range):
     src = " y "
     ref = " z " if defref else src
     
-    dif = " {flt} {src} - ".format(flt=flt, src=src)
-    dif_ref = " {flt} {ref} - ".format(flt=flt, ref=ref)
+    dif = f" {flt} {src} - "
+    dif_ref = f" {flt} {ref} - "
     dif_abs = dif_ref + " abs "
     
     thr = thr * value_range / 255
     largen_thr = largen_thr * value_range / 255
     
     if thr <= 0 and largen_thr <= 0:
-        limitExpr = " {src} ".format(src=src)
+        limitExpr = f" {src} "
     elif thr >= value_range and largen_thr >= value_range:
         limitExpr = ""
     else:
         if thr <= 0:
-            limitExpr = " {src} ".format(src=src)
+            limitExpr = f" {src} "
         elif thr >= value_range:
-            limitExpr = " {flt} ".format(flt=flt)
+            limitExpr = f" {flt} "
         elif elast <= 1:
-            limitExpr = " {dif_abs} {thr} <= {flt} {src} ? ".format(dif_abs=dif_abs, thr=thr, flt=flt, src=src)
+            limitExpr = f" {dif_abs} {thr} <= {flt} {src} ? "
         else:
             thr_1 = thr
             thr_2 = thr * elast
             thr_slope = 1 / (thr_2 - thr_1)
             # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
-            limitExpr = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
-            limitExpr = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExpr + " ? ? "
-            limitExpr = limitExpr.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
+            limitExpr = f" {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+            limitExpr = f" {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExpr + " ? ? "
         
         if largen_thr != thr:
             if largen_thr <= 0:
-                limitExprLargen = " {src} ".format(src=src)
+                limitExprLargen = f" {src} "
             elif largen_thr >= value_range:
-                limitExprLargen = " {flt} ".format(flt=flt)
+                limitExprLargen = f" {flt} "
             elif elast <= 1:
-                limitExprLargen = " {dif_abs} {thr} <= {flt} {src} ? ".format(dif_abs=dif_abs, thr=largen_thr, flt=flt, src=src)
+                limitExprLargen = f" {dif_abs} {largen_thr} <= {flt} {src} ? "
             else:
                 thr_1 = largen_thr
                 thr_2 = largen_thr * elast
                 thr_slope = 1 / (thr_2 - thr_1)
                 # final = src + dif * (thr_2 - dif_abs) / (thr_2 - thr_1)
-                limitExprLargen = " {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
-                limitExprLargen = " {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExprLargen + " ? ? "
-                limitExprLargen = limitExprLargen.format(dif=dif, dif_abs=dif_abs, thr_1=thr_1, thr_2=thr_2, thr_slope=thr_slope, flt=flt, src=src)
-            limitExpr = " {flt} {ref} > " + limitExprLargen + " " + limitExpr + " ? "
-            limitExpr = limitExpr.format(flt=flt, ref=ref)
+                limitExprLargen = f" {src} {dif} {thr_2} {dif_abs} - * {thr_slope} * + "
+                limitExprLargen = f" {dif_abs} {thr_1} <= {flt} {dif_abs} {thr_2} >= {src} " + limitExprLargen + " ? ? "
+            limitExpr = f" {flt} {ref} > " + limitExprLargen + " " + limitExpr + " ? "
     
     return limitExpr
 ################################################################################################################################
