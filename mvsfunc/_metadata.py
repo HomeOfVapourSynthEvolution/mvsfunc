@@ -1,6 +1,6 @@
 """mawen1250's VapourSynth functions"""
 
-__version__ = '10'
+__version__ = '11'
 
 __author__ = 'mawen1250 <mawen1250@gmail.com>'
 __maintainer__ = __author__
