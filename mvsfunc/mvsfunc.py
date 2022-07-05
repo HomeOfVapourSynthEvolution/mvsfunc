@@ -53,12 +53,12 @@
 
 
 import vapoursynth as vs
-from vapoursynth import core
 import functools
 import math
-from collections.abc import Iterable, Sequence, MutableSequence
+from collections.abc import Sequence
 from ._metadata import __version__
 
+core = vs.core
 
 ################################################################################################################################
 
@@ -253,7 +253,6 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
             elif dither == "random":
                 if kwargs['ampn'] is None:
                     dither = 1
-                    ampn = 1
                 elif kwargs['ampn'] > 0:
                     dither = 1
                 else:
@@ -1010,7 +1009,7 @@ def BM3D(input, sigma=None, radius1=None, radius2=None, profile1=None, profile2=
             flt = core.std.ShufflePlanes([clip,flt,flt], [0,1,2], vs.YUV)
 
     # Final estimate
-    for i in range(0, refine):
+    for _ in range(0, refine):
         if skip:
             flt = clip
         elif radius2 < 1:
@@ -1127,11 +1126,10 @@ def VFRSplice(clips, tcfile=None, v2=None, precision=None):
         ofile = open(tcfile, 'w')
         if v2: # timecode v2
             olines = ['# timecode format v2\n']
-            frames = tc_list[len(tc_list) - 1][1] + 1
             time = 0 # ms
             for tc in tc_list:
                 frame_duration = 1000 * tc[3] / tc[2] # ms
-                for frame in range(tc[0], tc[1] + 1):
+                for _ in range(tc[0], tc[1] + 1):
                     olines.append(f'{time : <.{precision}F}\n')
                     time += frame_duration
         else: # timecode v1
@@ -1926,12 +1924,12 @@ def PointPower(clip, vpow=None, hpow=None):
     # Process
     if hpow > 0:
         clip = core.std.Transpose(clip)
-        for i in range(hpow):
+        for _ in range(hpow):
             clip = core.std.Interleave([clip, clip]).std.DoubleWeave(True).std.SelectEvery(2, 0)
         clip = core.std.Transpose(clip)
 
     if vpow > 0:
-        for i in range(vpow):
+        for _ in range(vpow):
             clip = core.std.Interleave([clip, clip]).std.DoubleWeave(True).std.SelectEvery(2, 0)
 
     # Output
@@ -2389,17 +2387,11 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
         raise type_error('"id" must be a bool!')
 
     # Resolution level
-    noneD = False
     SD = False
-    HD = False
     UHD = False
 
-    if clip.width <= 0 or clip.height <= 0:
-        noneD = True
-    elif clip.width <= 1024 and clip.height <= 576:
+    if clip.width <= 1024 and clip.height <= 576:
         SD = True
-    elif clip.width <= 2048 and clip.height <= 1536:
-        HD = True
     else:
         UHD = True
 
@@ -2742,7 +2734,7 @@ def RegisterFormat(color_family, sample_type, bits_per_sample, subsampling_w, su
 def get_func_name(num_of_call_stacks=1):
     import inspect
     frame = inspect.currentframe()
-    for stack in range(num_of_call_stacks):
+    for _ in range(num_of_call_stacks):
         frame = frame.f_back
     return frame.f_code.co_name
 ################################################################################################################################
