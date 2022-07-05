@@ -1,0 +1,1 @@
+VapourSynth>=45
