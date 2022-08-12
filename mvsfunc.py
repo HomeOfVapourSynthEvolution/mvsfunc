@@ -49,6 +49,7 @@
 ##     CheckColorFamily
 ##     RemoveFrameProp
 ##     RegisterFormat
+##     GetFunctions
 ################################################################################################################################
 
 
@@ -2529,9 +2530,9 @@ def PlaneAverage(clip, plane=None, prop=None):
         raise type_error('"prop" must be a str!')
     
     # Process
-    if core.std.get_functions().__contains__('PlaneAverage'):
+    if GetFunctions().__contains__('PlaneAverage'):
         clip = core.std.PlaneAverage(clip, plane=plane, prop=prop)
-    elif core.std.get_functions().__contains__('PlaneStats'):
+    elif GetFunctions().__contains__('PlaneStats'):
         clip = core.std.PlaneStats(clip, plane=plane, prop='PlaneStats')
         def _PlaneAverageTransfer(n, f):
             fout = f.copy()
@@ -2723,6 +2724,16 @@ def RegisterFormat(color_family, sample_type, bits_per_sample, subsampling_w, su
     if vs.__api_version__.api_major >= 4:
         return core.query_video_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
     return core.register_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
+################################################################################################################################
+
+
+################################################################################################################################
+## Helper function: GetFunctions()
+################################################################################################################################
+def GetFunctions():
+    if vs.__api_version__.api_major >= 4:
+        return core.std.functions()
+    return core.std.get_functions()
 ################################################################################################################################
 
 
