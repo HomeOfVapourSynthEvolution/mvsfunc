@@ -2471,10 +2471,13 @@ def zDepth(clip, sample=None, depth=None, range=None, range_in=None, dither_type
     zimgResize = hasattr(core, 'resize')
     zimgPlugin = hasattr(core, 'z')
     if zimgResize:
+        # VapourSynth resizer
         clip = core.resize.Bicubic(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
     elif zimgPlugin and hasattr(core.z, 'Format'):
+        # vszimg 2.0
         clip = core.z.Format(clip, format=format.id, range=range, range_in=range_in, dither_type=dither_type, cpu_type=cpu_type)
     elif zimgPlugin and hasattr(core.z, 'Depth'):
+        # vszimg 1.0
         clip = core.z.Depth(clip, dither=dither_type, sample=sample, depth=depth, fullrange_in=range_in, fullrange_out=range)
     else:
         raise attribute_error('no available core.resize or zimg found!')
@@ -2521,9 +2524,9 @@ def PlaneAverage(clip, plane=None, prop=None):
         raise type_error('"prop" must be a str!')
 
     # Process
-    if core.std.get_functions().__contains__('PlaneAverage'):
+    if hasattr(core.std, 'PlaneAverage'):
         clip = core.std.PlaneAverage(clip, plane=plane, prop=prop)
-    elif core.std.get_functions().__contains__('PlaneStats'):
+    elif hasattr(core.std, 'PlaneStats'):
         clip = core.std.PlaneStats(clip, plane=plane, prop='PlaneStats')
         def _PlaneAverageTransfer(n, f):
             fout = f.copy()
@@ -2702,7 +2705,8 @@ def CheckColorFamily(color_family, valid_list=None, invalid_list=None):
 ## Helper function: RemoveFrameProp()
 ################################################################################################################################
 def RemoveFrameProp(clip, prop):
-    if vs.__api_version__.api_major >= 4:
+    if hasattr(core.std, 'RemoveFrameProps'):
+        # API >= 4
         return core.std.RemoveFrameProps(clip, prop)
     return core.std.SetFrameProp(clip, prop, delete=True)
 ################################################################################################################################
@@ -2712,7 +2716,8 @@ def RemoveFrameProp(clip, prop):
 ## Helper function: RegisterFormat()
 ################################################################################################################################
 def RegisterFormat(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h):
-    if vs.__api_version__.api_major >= 4:
+    if hasattr(core, 'query_video_format'):
+        # API >= 4
         return core.query_video_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
     return core.register_format(color_family, sample_type, bits_per_sample, subsampling_w, subsampling_h)
 ################################################################################################################################
