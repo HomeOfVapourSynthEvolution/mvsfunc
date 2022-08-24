@@ -58,7 +58,10 @@ import math
 from collections.abc import Sequence
 from ._metadata import __version__
 
-core = vs.core
+if not hasattr(vs, 'core'):
+    core = vs.get_core()
+else:
+    core = vs.core
 
 ################################################################################################################################
 
@@ -253,6 +256,7 @@ def Depth(input, depth=None, sample=None, fulls=None, fulld=None,
             elif dither == "random":
                 if kwargs['ampn'] is None:
                     dither = 1
+                    kwargs['ampn'] = 1
                 elif kwargs['ampn'] > 0:
                     dither = 1
                 else:
@@ -2392,6 +2396,8 @@ def GetMatrix(clip, matrix=None, dIsRGB=None, id=False):
 
     if clip.width <= 1024 and clip.height <= 576:
         SD = True
+    elif clip.width <= 2048 and clip.height <= 1536:
+        pass # HD
     else:
         UHD = True
 
